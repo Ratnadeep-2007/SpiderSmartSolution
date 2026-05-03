@@ -1,0 +1,7 @@
+box_barcode,file_barcode,description,entity,entity_code,department,location,record_date,tags
+GOGL-BX-001,GOGL-FL-0001,Cloud Infrastructure Docs,Google,GOO,Cloud,Rack-A1,2024-05-10,"cloud,google,infra"
+GOGL-BX-002,GOGL-FL-0002,Search Algorithm Patents,Google,GOO,Search,Safe Vault,2024-06-15,"search,ip,legal"
+MSFT-BX-001,MSFT-FL-0001,Azure Billing Records,Microsoft,MSFT,Azure,Warehouse-B,2024-07-20,"azure,finance,microsoft"
+MSFT-BX-002,MSFT-FL-0002,Office 365 Source Code,Microsoft,MSFT,Office,Vault-99,2024-08-25,"office,source,secure"
+GOGL-BX-003,GOGL-FL-0003,Data Center Maintenance,Google,GOO,Cloud,Rack-B2,2024-09-01,"google,datacenter"
+MSFT-BX-003,MSFT-FL-0003,Windows 11 Setup Logs,Microsoft,MSFT,Azure,Warehouse-C,2024-10-05,"windows,microsoft"
