@@ -21,11 +21,7 @@ async def startup_event():
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://spider-smart-ims-001.web.app"
-    ],
+    allow_origins=["*"], # Allow all for deployment testing, can be restricted later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
