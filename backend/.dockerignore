@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.git
+.gitignore
+migrations/
+*.db
+tests/
+find_tampered_log.py
+simulate_perfect_tamper.py
+test_audit_upgrade.py
