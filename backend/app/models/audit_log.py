@@ -11,4 +11,5 @@ class AuditLog(Base):
     performed_at = Column(DateTime(timezone=True), server_default=func.now())
     ip_address = Column(String, nullable=True)
     changes = Column(JSON, nullable=True)
+    previous_hash = Column(String, nullable=True)
     tamper_hash = Column(String, nullable=False)
