@@ -23,5 +23,11 @@ jobs:
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
-          git remote add hf https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME}
-          git push --force hf main:main
+          git clone https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME} hf_space
+          # Only copy what the backend needs to avoid pushing PDFs
+          cp -r backend hf_space/
+          cp Dockerfile hf_space/
+          cd hf_space
+          git add .
+          git commit -m "Deploy from GitHub" || echo "No changes to commit"
+          git push origin main
