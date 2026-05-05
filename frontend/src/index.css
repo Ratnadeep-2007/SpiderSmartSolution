@@ -73,4 +73,7 @@
   body {
     @apply bg-background text-foreground;
   }
+  input, select, textarea {
+    @apply bg-background text-foreground;
+  }
 }

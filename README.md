@@ -24,6 +24,8 @@ A comprehensive web-based Inventory Management System designed to create, classi
 
 ## Getting Started
 
+> **Note for Contributors:** For a faster, step-by-step setup guide using shared credentials, please refer to [SETUP_GUIDE.md](./SETUP_GUIDE.md).
+
 ### 1. Backend Setup
 1. Navigate to the `backend` directory:
    ```bash
