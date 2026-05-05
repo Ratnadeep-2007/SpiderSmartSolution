@@ -23,9 +23,13 @@ cd spider-internship
 
 ## Step 2: Configure Environment Variables
 
-1. Obtain the `.env` file provided privately (e.g., via WhatsApp).
-2. Copy/Move this `.env` file into the `backend/` directory of the project.
-   * Path should be: `spider-internship/backend/.env`
+1. Obtain the **two** `.env` files provided privately (e.g., via WhatsApp):
+   - **Backend `.env`**: Copy this into the `backend/` directory.
+   - **Frontend `.env`**: Copy this into the `frontend/` directory (Rename it to `.env` if it was sent as `.env.production`).
+
+   *Paths should be:*
+   - `spider-internship/backend/.env`
+   - `spider-internship/frontend/.env`
 
 ---
 
