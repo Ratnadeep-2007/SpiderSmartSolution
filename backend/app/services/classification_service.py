@@ -7,6 +7,36 @@ from sqlalchemy import select, update, func
 from ..models.record import InventoryRecord
 from ..models.master import AutoClassificationRule, Category
 
+def _apply_rule_action(record: InventoryRecord, action: Dict[str, Any]) -> bool:
+    """
+    Applies a rule action to a record. Returns True if modified.
+    Consolidates logic for set_category and add_tag(s).
+    """
+    action_type = action.get("type", "").lower()
+    action_value = action.get("value")
+    if not action_value:
+        return False
+    
+    modified = False
+    if action_type == "set_category":
+        try:
+            cat_id = uuid.UUID(str(action_value))
+            if record.category_id != cat_id:
+                record.category_id = cat_id
+                modified = True
+        except (ValueError, TypeError):
+            pass
+    elif action_type in ["add_tag", "add_tags"]:
+        tags = set(record.tags or [])
+        # Support both single tag and comma-separated tags
+        new_tags = [t.strip() for t in str(action_value).split(',') if t.strip()]
+        before_len = len(tags)
+        tags.update(new_tags)
+        if len(tags) > before_len:
+            record.tags = list(tags)
+            modified = True
+    return modified
+
 async def evaluate_rules_for_record(db: AsyncSession, record_id: uuid.UUID):
     """
     Evaluates all active auto-classification rules against a single record.
@@ -26,34 +56,12 @@ async def evaluate_rules_for_record(db: AsyncSession, record_id: uuid.UUID):
     rules = rules_result.scalars().all()
 
     modified = False
-    new_tags = set(record.tags or [])
-    new_category_id = record.category_id
-
     for rule in rules:
         if await matches_condition(record, rule.condition):
-            action = rule.action
-            action_type = action.get("type")
-            action_value = action.get("value")
-
-            if action_type == "add_tag":
-                if action_value not in new_tags:
-                    new_tags.add(action_value)
-                    modified = True
-            elif action_type == "set_category":
-                try:
-                    cat_id = uuid.UUID(action_value)
-                    if new_category_id != cat_id:
-                        new_category_id = cat_id
-                        modified = True
-                except ValueError:
-                    continue
+            if _apply_rule_action(record, rule.action):
+                modified = True
 
     if modified:
-        await db.execute(
-            update(InventoryRecord)
-            .where(InventoryRecord.id == record_id)
-            .values(tags=list(new_tags), category_id=new_category_id)
-        )
         await db.flush()
 
 async def matches_condition(record: InventoryRecord, condition: Dict[str, Any]) -> bool:
@@ -193,26 +201,7 @@ async def apply_rule_retroactively(db: AsyncSession, rule_id: uuid.UUID):
     
     count = 0
     for record in records:
-        modified = False
-        if action_type == "set_category":
-            try:
-                new_cat_id = uuid.UUID(action_value)
-                if record.category_id != new_cat_id:
-                    record.category_id = new_cat_id
-                    modified = True
-            except (ValueError, TypeError):
-                continue
-        elif action_type in ["add_tag", "add_tags"]:
-            tags = set(record.tags or [])
-            # Support both single tag and comma-separated tags
-            new_tag_list = [t.strip() for t in str(action_value).split(',') if t.strip()]
-            before_len = len(tags)
-            tags.update(new_tag_list)
-            if len(tags) > before_len:
-                record.tags = list(tags)
-                modified = True
-        
-        if modified:
+        if _apply_rule_action(record, rule.action):
             count += 1
             
     await db.commit()
