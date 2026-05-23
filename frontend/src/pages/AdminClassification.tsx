@@ -1,25 +1,38 @@
-import { useState, useEffect } from 'react'
-import { 
-  Tag, 
-  Workflow, 
-  Plus, 
-  Trash2, 
-  ChevronRight, 
-  ChevronDown, 
-  Loader2,
-  FolderTree,
-  AlertCircle,
-  Download,
-  X
-} from 'lucide-react'
+import React, { useState, useEffect } from 'react'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Download, Plus, FolderTree, Workflow, ChevronDown, ChevronRight, Trash2, Loader2, X, AlertCircle, Sparkles } from 'lucide-react'
+
+interface Category {
+  id: string
+  name: string
+  parent_id?: string | null
+  children?: Category[]
+}
+
+interface Rule {
+  id: string
+  name: string
+  condition: {
+    field: string
+    operator: string
+    value: string
+  }
+  action: {
+    type: string
+    value: string
+  }
+  priority: number
+  is_active: boolean
+}
 
 export default function AdminClassification() {
   const [activeTab, setActiveTab] = useState('categories')
-  const [categories, setCategories] = useState<any[]>([])
-  const [rules, setRules] = useState<any[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
+  const [discoveries, setDiscoveries] = useState<{keyword: string, count: number}[]>([])
+  const [simulation, setSimulation] = useState<{total_count: number, sample_records: string[]} | null>(null)
 
   // Modal states
   const [showModal, setShowModal] = useState(false)
@@ -37,9 +50,18 @@ export default function AdminClassification() {
   const [ruleActionType, setRuleActionType] = useState('SET_CATEGORY')
   const [ruleActionVal, setRuleActionValue] = useState('')
   const [rulePriority, setRulePriority] = useState(0)
+  const [applyRetroactive, setApplyRetroactive] = useState(false)
+
+  const fetchDiscoveries = async () => {
+    try {
+      const res = await api.get('/master/classification/discover')
+      setDiscoveries(res.data)
+    } catch (_err) {
+      console.error('Discovery failed')
+    }
+  }
 
   const fetchData = async () => {
-    setLoading(true)
     try {
       const [cRes, rRes] = await Promise.all([
         api.get('/master/categories'),
@@ -47,26 +69,51 @@ export default function AdminClassification() {
       ])
       setCategories(cRes.data)
       setRules(rRes.data)
-    } catch (err) {
-      console.error('Failed to fetch classification data:', err)
+      if (activeTab === 'rules') await fetchDiscoveries()
+    } catch (_err) {
+      console.error('Failed to fetch classification data')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
+    const init = async () => {
+      setLoading(true)
+      await fetchData()
+    }
+    init()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'rules' && showModal && ruleVal.length > 2) {
+      const timer = setTimeout(async () => {
+        try {
+          const res = await api.post('/master/classification/simulate', {
+            field: ruleField,
+            operator: ruleOp,
+            value: ruleVal
+          })
+          setSimulation(res.data)
+        } catch (_err) {
+          setSimulation(null)
+        }
+      }, 500)
+      return () => clearTimeout(timer)
+    } else {
+      setSimulation(null)
+    }
+  }, [ruleVal, ruleField, ruleOp, activeTab, showModal])
 
   const handleExport = () => {
     let headers: string[] = []
-    let csvData: any[][] = []
+    let csvData: (string | number)[][] = []
     const filename = `${activeTab}_export_${new Date().getTime()}.csv`
 
     if (activeTab === 'categories') {
       headers = ['ID', 'Name', 'Parent ID']
-      const flatten = (items: any[]) => {
-        let rows: any[][] = []
+      const flatten = (items: Category[]) => {
+        let rows: (string | number)[][] = []
         items.forEach(item => {
           rows.push([item.id, item.name, item.parent_id || 'Root'])
           if (item.children) rows = [...rows, ...flatten(item.children)]
@@ -109,6 +156,7 @@ export default function AdminClassification() {
     setRuleActionType('SET_CATEGORY')
     setRuleActionValue('')
     setRulePriority(0)
+    setApplyRetroactive(false)
     setShowModal(false)
   }
 
@@ -118,8 +166,8 @@ export default function AdminClassification() {
     try {
       await api.post('/master/categories', { name: catName, parent_id: catParentId })
       resetForms()
-      fetchData()
-    } catch (err) {
+      await fetchData()
+    } catch (_err) {
       alert('Failed to add category')
     } finally {
       setIsSubmitting(false)
@@ -135,12 +183,13 @@ export default function AdminClassification() {
         condition: { field: ruleField, operator: ruleOp, value: ruleVal },
         action: { type: ruleActionType, value: ruleActionVal },
         priority: rulePriority,
-        is_active: true
+        is_active: true,
+        apply_retroactive: applyRetroactive
       }
       await api.post('/master/classification-rules', payload)
       resetForms()
-      fetchData()
-    } catch (err) {
+      await fetchData()
+    } catch (_err) {
       alert('Failed to add rule')
     } finally {
       setIsSubmitting(false)
@@ -151,8 +200,8 @@ export default function AdminClassification() {
     if (!confirm('Are you sure you want to delete this category? Sub-categories will also be deleted.')) return
     try {
       await api.delete(`/master/categories/${id}`)
-      fetchData()
-    } catch (err) {
+      await fetchData()
+    } catch (_err) {
       alert('Failed to delete category')
     }
   }
@@ -161,8 +210,8 @@ export default function AdminClassification() {
     if (!confirm('Are you sure you want to delete this rule?')) return
     try {
       await api.delete(`/master/classification-rules/${id}`)
-      fetchData()
-    } catch (err) {
+      await fetchData()
+    } catch (_err) {
       alert('Failed to delete rule')
     }
   }
@@ -209,7 +258,10 @@ export default function AdminClassification() {
           Taxonomy Tree
         </button>
         <button 
-          onClick={() => setActiveTab('rules')}
+          onClick={() => {
+            setActiveTab('rules');
+            fetchDiscoveries();
+          }}
           className={cn(
             "px-6 py-3 text-sm font-medium transition-all border-b-2",
             activeTab === 'rules' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -219,6 +271,28 @@ export default function AdminClassification() {
           Auto-Classification Rules
         </button>
       </div>
+
+      {activeTab === 'rules' && discoveries.length > 0 && (
+        <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider mr-2">
+            <Sparkles className="h-4 w-4" />
+            Discovery
+          </div>
+          {discoveries.map((disc, idx) => (
+            <button 
+              key={idx}
+              onClick={() => {
+                setRuleValue(disc.keyword);
+                openModal();
+              }}
+              className="bg-background border rounded-full px-3 py-1 text-xs flex items-center gap-2 hover:border-primary hover:text-primary transition-all shadow-sm group"
+            >
+              <span className="font-semibold">{disc.keyword}</span>
+              <span className="text-muted-foreground group-hover:text-primary/70 bg-muted px-1.5 py-0.5 rounded-full text-[10px]">{disc.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
         {loading ? (
@@ -238,7 +312,7 @@ export default function AdminClassification() {
                   </div>
                 </div>
                 <div className="ml-6 space-y-2 border-l pl-4">
-                  {cat.children?.map((child: any) => (
+                  {cat.children?.map((child: Category) => (
                     <div key={child.id} className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded transition-colors group">
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-sm">{child.name}</span>
@@ -381,6 +455,27 @@ export default function AdminClassification() {
                   />
                 </div>
 
+                {simulation && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-primary flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        Simulation Impact
+                      </span>
+                      <span className="text-xs font-bold text-primary">{simulation.total_count} records affected</span>
+                    </div>
+                    {simulation.sample_records.length > 0 && (
+                      <div className="space-y-1">
+                        {simulation.sample_records.map((sample, i) => (
+                          <div key={i} className="text-[10px] text-muted-foreground truncate bg-background/50 px-2 py-1 rounded border border-primary/10 italic">
+                            "{sample}"
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="border-t pt-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -415,6 +510,18 @@ export default function AdminClassification() {
                         className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     )}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input 
+                      type="checkbox" id="retroactive"
+                      checked={applyRetroactive}
+                      onChange={(e) => setApplyRetroactive(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="retroactive" className="text-xs font-medium text-foreground cursor-pointer select-none">
+                      Apply retroactively to existing records
+                    </label>
                   </div>
                 </div>
 
