@@ -1,7 +1,9 @@
 import uuid
+import collections
+import re
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from ..models.record import InventoryRecord
 from ..models.master import AutoClassificationRule, Category
 
@@ -81,6 +83,60 @@ async def matches_condition(record: InventoryRecord, condition: Dict[str, Any]) 
         return record_value.startswith(value)
     
     return False
+
+async def discover_patterns(db: AsyncSession) -> List[Dict[str, Any]]:
+    """
+    Finds top 10 keywords in unclassified records.
+    """
+    result = await db.execute(
+        select(InventoryRecord.description)
+        .where(InventoryRecord.category_id == None)
+        .limit(500)
+    )
+    descriptions = result.scalars().all()
+    
+    words = []
+    for desc in descriptions:
+        if desc:
+            # Simple word extraction (4+ letters)
+            words.extend(re.findall(r'\w{4,}', desc.lower()))
+            
+    counter = collections.Counter(words)
+    common = counter.most_common(10)
+    
+    return [{"keyword": k, "count": c} for k, c in common]
+
+async def simulate_rule(db: AsyncSession, condition: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Simulates a rule and returns impact statistics.
+    """
+    field = condition.get("field")
+    operator = condition.get("operator")
+    value = condition.get("value")
+    
+    # Base query for unclassified records
+    query = select(InventoryRecord).where(InventoryRecord.category_id == None)
+    
+    if operator == "contains":
+        query = query.where(getattr(InventoryRecord, field).ilike(f"%{value}%"))
+    elif operator == "equals":
+        query = query.where(getattr(InventoryRecord, field).ilike(value))
+    elif operator == "starts_with":
+        query = query.where(getattr(InventoryRecord, field).ilike(f"{value}%"))
+        
+    # Count matches
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    
+    # Fetch some samples
+    sample_result = await db.execute(query.limit(5))
+    samples = [r.description for r in sample_result.scalars().all()]
+    
+    return {
+        "total_count": total,
+        "sample_records": samples
+    }
 
 async def run_auto_classification_batch(db: AsyncSession):
     """
