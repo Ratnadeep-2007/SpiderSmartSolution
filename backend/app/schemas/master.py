@@ -81,6 +81,22 @@ class AutoClassificationRuleBase(BaseModel):
     priority: int = 0
     is_active: bool = True
 
+class AutoClassificationRuleCreate(AutoClassificationRuleBase):
+    apply_retroactive: bool = False
+
 class AutoClassificationRule(AutoClassificationRuleBase):
     id: uuid.UUID
     model_config = ConfigDict(from_attributes=True)
+
+class ClassificationDiscovery(BaseModel):
+    keyword: str
+    count: int
+
+class ClassificationSimulationRequest(BaseModel):
+    field: str
+    operator: str
+    value: str
+
+class ClassificationSimulationResponse(BaseModel):
+    total_count: int
+    sample_records: List[str]
