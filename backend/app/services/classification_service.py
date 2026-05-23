@@ -156,3 +156,64 @@ async def run_auto_classification_batch(db: AsyncSession):
         await evaluate_rules_for_record(db, rid)
     
     await db.commit()
+
+async def apply_rule_retroactively(db: AsyncSession, rule_id: uuid.UUID):
+    """
+    Applies a rule to all existing matching records (where category is null).
+    """
+    result = await db.execute(select(AutoClassificationRule).where(AutoClassificationRule.id == rule_id))
+    rule = result.scalar_one_or_none()
+    if not rule:
+        return 0
+        
+    condition = rule.condition
+    field = condition.get("field")
+    operator = condition.get("operator")
+    value = condition.get("value")
+    
+    action = rule.action
+    action_type = action.get("type", "").lower()
+    action_value = action.get("value")
+    
+    if not field or not operator or not action_value:
+        return 0
+
+    # Target only untagged/uncategorized records as per spec
+    query = select(InventoryRecord).where(InventoryRecord.category_id == None)
+    
+    if operator == "contains":
+        query = query.where(getattr(InventoryRecord, field).ilike(f"%{value}%"))
+    elif operator == "equals":
+        query = query.where(getattr(InventoryRecord, field).ilike(value))
+    elif operator == "starts_with":
+        query = query.where(getattr(InventoryRecord, field).ilike(f"{value}%"))
+        
+    matching_result = await db.execute(query)
+    records = matching_result.scalars().all()
+    
+    count = 0
+    for record in records:
+        modified = False
+        if action_type == "set_category":
+            try:
+                new_cat_id = uuid.UUID(action_value)
+                if record.category_id != new_cat_id:
+                    record.category_id = new_cat_id
+                    modified = True
+            except (ValueError, TypeError):
+                continue
+        elif action_type in ["add_tag", "add_tags"]:
+            tags = set(record.tags or [])
+            # Support both single tag and comma-separated tags
+            new_tag_list = [t.strip() for t in str(action_value).split(',') if t.strip()]
+            before_len = len(tags)
+            tags.update(new_tag_list)
+            if len(tags) > before_len:
+                record.tags = list(tags)
+                modified = True
+        
+        if modified:
+            count += 1
+            
+    await db.commit()
+    return count
