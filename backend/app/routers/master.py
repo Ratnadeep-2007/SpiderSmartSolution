@@ -10,6 +10,7 @@ from ..models.master import RecordType, RecordTypeField, EntityType, Entity, Dep
 from ..models.user import User
 from ..schemas import master as schemas
 from ..dependencies.auth import get_current_user, check_role
+from ..services import classification_service
 
 router = APIRouter(prefix="/master", tags=["master"])
 
@@ -314,25 +315,39 @@ async def delete_category(
     await db.commit()
     return {"status": "success"}
 
+@router.get("/classification/discover", response_model=List[schemas.ClassificationDiscovery])
+async def discover_classification_patterns(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(check_role(["SYSTEM_ADMIN"]))
+):
+    return await classification_service.discover_patterns(db)
+
+@router.post("/classification/simulate", response_model=schemas.ClassificationSimulationResponse)
+async def simulate_classification_rule(
+    sim_in: schemas.ClassificationSimulationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(check_role(["SYSTEM_ADMIN"]))
+):
+    return await classification_service.simulate_rule(db, sim_in.model_dump())
+
 @router.post("/classification-rules", response_model=schemas.AutoClassificationRule)
 async def create_classification_rule(
-    rule_in: schemas.AutoClassificationRuleBase,
+    rule_in: schemas.AutoClassificationRuleCreate,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(check_role(["SYSTEM_ADMIN", "RECORDS_MANAGER"]))
 ):
-    db_rule = AutoClassificationRule(**rule_in.model_dump())
+    rule_data = rule_in.model_dump()
+    apply_retroactive = rule_data.pop("apply_retroactive", False)
+    
+    db_rule = AutoClassificationRule(**rule_data)
     db.add(db_rule)
     await db.commit()
     await db.refresh(db_rule)
     
-    return {
-        "id": db_rule.id,
-        "name": db_rule.name,
-        "condition": db_rule.condition,
-        "action": db_rule.action,
-        "priority": db_rule.priority,
-        "is_active": db_rule.is_active
-    }
+    if apply_retroactive:
+        await classification_service.apply_rule_retroactively(db, db_rule.id)
+    
+    return db_rule
 
 @router.delete("/classification-rules/{rule_id}")
 async def delete_classification_rule(
