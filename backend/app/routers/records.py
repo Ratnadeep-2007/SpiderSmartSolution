@@ -36,8 +36,10 @@ async def create_record(
     """
     try:
         return await record_service.create_record(db, record_in=record_in, user_id=current_user.id)
-    except IntegrityError:
+    except IntegrityError as e:
         await db.rollback()
+        import logging
+        logging.getLogger(__name__).error(f"IntegrityError: {e}", exc_info=True)
         raise HTTPException(status_code=409, detail="Box or File Barcode already exists")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

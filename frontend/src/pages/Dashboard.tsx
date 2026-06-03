@@ -4,19 +4,34 @@ import {
   Database, 
   AlertTriangle, 
   FileCheck, 
-  Users,
   TrendingUp,
   History,
   Upload,
   Plus,
   ArrowRight,
-  Loader2
+  Loader2,
+  ShieldCheck as ShieldCheckIcon
 } from 'lucide-react'
 import api from '@/lib/api'
 
+interface DashboardStats {
+  total_records: number
+  due_for_disposition: number
+  active_holds: number
+  recent_activity: number
+}
+
+interface ActivityLog {
+  id: string
+  action: string
+  record_id?: string
+  user_email?: string
+  performed_at: string
+}
+
 export default function Dashboard() {
-  const [stats, setStats] = useState<any>(null)
-  const [activities, setActivities] = useState<any[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [activities, setActivities] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -28,8 +43,8 @@ export default function Dashboard() {
         ])
         setStats(statsRes.data)
         setActivities(logsRes.data.data)
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err)
+      } catch (_err) {
+        console.error('Failed to fetch dashboard data')
       } finally {
         setLoading(false)
       }
@@ -130,32 +145,12 @@ export default function Dashboard() {
               <span className="text-sm font-semibold">Reports</span>
             </Link>
             <Link to="/audit" className="flex flex-col items-center justify-center rounded-xl border border-dashed p-6 hover:bg-muted/50 hover:border-primary/50 transition-all group">
-              <ShieldCheck className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
+              <ShieldCheckIcon className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
               <span className="text-sm font-semibold">Audit Log</span>
             </Link>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function ShieldCheck(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   )
 }

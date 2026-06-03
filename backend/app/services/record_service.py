@@ -20,7 +20,7 @@ async def get_records(
     limit: int = 100, 
     current_user: Optional[User] = None
 ) -> List[InventoryRecord]:
-    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type))
+    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type), selectinload(InventoryRecord.category))
     
     # Apply Scoping for Guests
     if current_user and current_user.role == "EXTERNAL_GUEST" and current_user.scoped_filters:
@@ -38,7 +38,7 @@ async def get_records(
     return result.scalars().all()
 
 async def get_record(db: AsyncSession, record_id: uuid.UUID, current_user: Optional[User] = None) -> Optional[InventoryRecord]:
-    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type)).where(InventoryRecord.id == record_id)
+    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type), selectinload(InventoryRecord.category)).where(InventoryRecord.id == record_id)
     
     # Apply Scoping for Guests
     if current_user and current_user.role == "EXTERNAL_GUEST" and current_user.scoped_filters:
@@ -69,7 +69,7 @@ async def get_record(db: AsyncSession, record_id: uuid.UUID, current_user: Optio
 async def get_record_by_barcode(db: AsyncSession, barcode: str) -> Optional[InventoryRecord]:
     result = await db.execute(
         select(InventoryRecord)
-        .options(selectinload(InventoryRecord.record_type))
+        .options(selectinload(InventoryRecord.record_type), selectinload(InventoryRecord.category))
         .where(or_(InventoryRecord.box_barcode == barcode, InventoryRecord.file_barcode == barcode))
     )
     return result.scalar_one_or_none()

@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { 
   Upload, 
-  FileText, 
   CheckCircle2, 
   AlertCircle, 
   ChevronRight, 
-  ArrowLeft,
   Loader2,
   Table as TableIcon,
   Settings,
@@ -28,15 +26,21 @@ const RECORD_FIELDS = [
   { name: 'category_id', label: 'Category ID', required: false },
 ]
 
+interface ImportResult {
+  success_count: number
+  error_count: number
+  errors: { row: number; error: string }[]
+}
+
 export default function Import() {
   const [step, setStep] = useState(1)
   const [file, setFile] = useState<File | null>(null)
   const [headers, setHeaders] = useState<string[]>([])
   const [previewRows, setPreviewRows] = useState<string[][]>([])
   const [fieldMap, setFieldMap] = useState<Record<string, string>>({})
-  const [defaults, setDefaults] = useState<Record<string, any>>({})
+  const [defaults, setDefaults] = useState<Record<string, string>>({})
   const [isProcessing, setIsProcessing] = useState(false)
-  const [importResult, setImportResult] = useState<any>(null)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -59,7 +63,7 @@ export default function Import() {
         })
         setFieldMap(initialMap)
         setStep(2)
-      } catch (err) {
+      } catch (_err) {
         alert('Failed to parse CSV')
       }
     }
@@ -78,7 +82,7 @@ export default function Import() {
       const res = await api.post('/import/process', formData)
       setImportResult(res.data)
       setStep(3)
-    } catch (err) {
+    } catch (_err) {
       alert('Import failed')
     } finally {
       setIsProcessing(false)
@@ -217,19 +221,23 @@ export default function Import() {
                   </tbody>
                 </table>
               </div>
-              <button 
-                onClick={handleProcess}
-                disabled={isProcessing}
-                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg font-bold shadow-sm hover:bg-primary/90 transition-all disabled:opacity-50"
-              >
-                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Import Process"}
-              </button>
-              <button 
-                onClick={() => setStep(1)}
-                className="w-full text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancel and Choose Another File
-              </button>
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={handleProcess}
+                  disabled={isProcessing}
+                  className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg font-bold shadow-sm hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Import Process"}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setStep(1)}
+                  disabled={isProcessing}
+                  className="w-full border bg-background py-2 rounded-lg font-medium text-sm hover:bg-accent text-center transition-colors"
+                >
+                  Go Back & Change File
+                </button>
+              </div>
             </div>
           </div>
         </div>

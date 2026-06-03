@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { 
   Users, 
   UserPlus, 
-  Shield, 
   ShieldAlert, 
   ToggleLeft, 
   ToggleRight,
@@ -31,7 +30,7 @@ interface User {
   is_active: boolean
   created_at: string
   expires_at?: string
-  scoped_filters?: any
+  scoped_filters?: Record<string, string | null>
 }
 
 export default function AdminUsers() {
@@ -43,8 +42,8 @@ export default function AdminUsers() {
   const menuRef = useRef<HTMLDivElement>(null)
   
   // Scoped filter metadata
-  const [entities, setEntities] = useState<any[]>([])
-  const [departments, setDepartments] = useState<any[]>([])
+  const [entities, setEntities] = useState<Record<string, any>[]>([])
+  const [departments, setDepartments] = useState<Record<string, any>[]>([])
 
   // Invite/Edit Form State
   const [inviteEmail, setInviteEmail] = useState('')
@@ -59,11 +58,10 @@ export default function AdminUsers() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const fetchUsers = async () => {
-    setLoading(true)
     try {
       const res = await api.get('/admin/users')
       setUsers(res.data)
-    } catch (err) {
+    } catch (_err) {
       toast.error('Failed to fetch users')
     } finally {
       setLoading(false)
@@ -84,8 +82,10 @@ export default function AdminUsers() {
   }
 
   useEffect(() => {
-    fetchUsers()
-    fetchMetadata()
+    const init = async () => {
+      await Promise.all([fetchUsers(), fetchMetadata()])
+    }
+    init()
   }, [])
 
   // Click outside handler for dropdown

@@ -1,35 +1,38 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
 
+interface FilterItem {
+  id: string
+  name: string
+  children?: FilterItem[]
+}
+
 interface FilterPanelProps {
-  onFilterChange: (filters: any) => void
-  activeFilters: any
+  onFilterChange: (filters: Record<string, string | undefined>) => void
+  activeFilters: Record<string, string | undefined>
 }
 
 export default function FilterPanel({ onFilterChange, activeFilters }: FilterPanelProps) {
-  const [entityTypes, setEntityTypes] = useState<any[]>([])
-  const [entities, setEntities] = useState<any[]>([])
-  const [departments, setDepartments] = useState<any[]>([])
-  const [recordTypes, setRecordTypes] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [entityTypes, setEntityTypes] = useState<FilterItem[]>([])
+  const [entities, setEntities] = useState<FilterItem[]>([])
+  const [departments, setDepartments] = useState<FilterItem[]>([])
+  const [recordTypes, setRecordTypes] = useState<FilterItem[]>([])
   const [isOpen, setIsOpen] = useState(true)
 
   useEffect(() => {
     const fetchMeta = async () => {
       try {
-        const [etRes, eRes, rtRes, catRes] = await Promise.all([
+        const [etRes, eRes, rtRes] = await Promise.all([
           api.get('/master/entity-types'),
           api.get('/master/entities'),
-          api.get('/master/record-types'),
-          api.get('/master/categories')
+          api.get('/master/record-types')
         ])
         setEntityTypes(etRes.data)
         setEntities(eRes.data)
         setRecordTypes(rtRes.data)
-        setCategories(catRes.data)
-      } catch (err) {
-        console.error('Failed to fetch filters:', err)
+      } catch (_err) {
+        console.error('Failed to fetch filters')
       }
     }
     fetchMeta()
@@ -42,15 +45,15 @@ export default function FilterPanel({ onFilterChange, activeFilters }: FilterPan
         const params = activeFilters.entity_id ? { entity_id: activeFilters.entity_id } : {}
         const res = await api.get('/master/departments', { params })
         setDepartments(res.data)
-      } catch (err) {
-        console.error('Failed to fetch departments:', err)
+      } catch (_err) {
+        console.error('Failed to fetch departments')
       }
     }
     fetchDepts()
   }, [activeFilters.entity_id])
 
   const handleSelectChange = (field: string, value: string) => {
-    const updates: any = { [field]: value || undefined }
+    const updates: Record<string, string | undefined> = { [field]: value || undefined }
     
     // If entity changes, clear department
     if (field === 'entity_id') {
@@ -189,24 +192,7 @@ export default function FilterPanel({ onFilterChange, activeFilters }: FilterPan
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Category</label>
-            <select 
-              value={activeFilters.category_id || ''}
-              onChange={(e) => handleSelectChange('category_id', e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <optgroup key={cat.id} label={cat.name}>
-                  <option value={cat.id}>{cat.name} (Parent)</option>
-                  {cat.children?.map((child: any) => (
-                    <option key={child.id} value={child.id}>&nbsp;&nbsp;{child.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+
 
           <button 
             onClick={clearFilters}

@@ -45,7 +45,7 @@ async def export_audit_logs(
     current_user: User = Depends(get_current_user)
 ):
     logs_data = await audit_service.get_audit_logs(db, page=1, size=1000) # Get a large batch
-    logs = logs_data["items"]
+    logs = logs_data.get("data", [])
     
     output = io.StringIO()
     writer = csv.writer(output)
@@ -53,13 +53,13 @@ async def export_audit_logs(
     
     for log in logs:
         writer.writerow([
-            log.id,
-            log.timestamp.isoformat(),
-            log.action,
-            log.performed_by,
-            log.record_id,
-            log.log_hash,
-            str(log.changes)
+            log.get("id"),
+            log["performed_at"].isoformat() if log.get("performed_at") else "",
+            log.get("action"),
+            log.get("user_email") or log.get("performed_by"),
+            log.get("record_id"),
+            log.get("tamper_hash"),
+            str(log.get("changes"))
         ])
     
     output.seek(0)

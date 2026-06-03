@@ -4,6 +4,12 @@ import { ShieldCheck, Lock, Mail, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/api'
 
+import { AxiosError } from 'axios'
+
+interface ApiErrorResponse {
+  detail?: string | { msg: string }[]
+}
+
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,14 +46,17 @@ export default function Login() {
       login(userResponse.data, access_token)
       
       navigate('/')
-    } catch (err: any) {
+    } catch (err) {
       console.error('Login error:', err)
       let errorMessage = 'Invalid email or password. Please check your credentials.'
-      if (err.response?.data?.detail) {
-        if (typeof err.response.data.detail === 'string') {
-          errorMessage = err.response.data.detail
-        } else if (Array.isArray(err.response.data.detail)) {
-          errorMessage = err.response.data.detail[0]?.msg || errorMessage
+      const axiosError = err as AxiosError<ApiErrorResponse>
+      
+      if (axiosError.response?.data?.detail) {
+        const detail = axiosError.response.data.detail
+        if (typeof detail === 'string') {
+          errorMessage = detail
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail[0]?.msg || errorMessage
         }
       }
       setError(errorMessage)

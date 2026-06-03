@@ -21,13 +21,28 @@ async def test_system():
 
             # 2. Create Record
             print('\nTesting Record Creation & Auto-classification...')
+            # Get master IDs
+            et_resp = await client.get(f'{base_url}/master/entity-types', headers=headers)
+            entity_type_id = et_resp.json()[0]['id']
+            
+            e_resp = await client.get(f'{base_url}/master/entities', headers=headers)
+            entity = e_resp.json()[0]
+            entity_id = entity['id']
+            entity_code = entity['entity_code']
+            
+            d_resp = await client.get(f'{base_url}/master/departments', params={'entity_id': entity_id}, headers=headers)
+            department_id = d_resp.json()[0]['id']
+
             box_code = 'T' + str(uuid.uuid4().hex[:10]).upper()
             file_code = 'F' + str(uuid.uuid4().hex[:12]).upper()
             record_data = {
+                'entity_type_id': entity_type_id,
+                'entity_id': entity_id,
+                'department_id': department_id,
+                'entity_code': entity_code,
                 'box_barcode': box_code,
                 'file_barcode': file_code,
-                'entity': 'Spider Smart',
-                'entity_code': 11,
+                'entity': entity['name'],
                 'department': 'Finance',
                 'location': 'Rack A1',
                 'description': '2024 invoice for tax audit - spider smart invoice',

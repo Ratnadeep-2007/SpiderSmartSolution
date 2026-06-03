@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
 import { 
-  History, 
   RotateCcw, 
   ChevronDown, 
   ChevronUp, 
-  Eye, 
-  Clock,
-  User,
-  AlertCircle
+  Clock
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
@@ -15,7 +11,7 @@ import api from '@/lib/api'
 interface Version {
   id: string
   version: number
-  data_snapshot: any
+  data_snapshot: Record<string, unknown>
   created_by: string
   created_at: string
 }
@@ -37,8 +33,8 @@ export default function VersionHistory({ recordId, currentVersion, onRevert }: V
       try {
         const res = await api.get(`/records/${recordId}/versions`)
         setVersions(res.data)
-      } catch (err) {
-        console.error('Failed to fetch versions:', err)
+      } catch (_err) {
+        console.error('Failed to fetch versions')
       } finally {
         setIsLoading(false)
       }
@@ -53,7 +49,7 @@ export default function VersionHistory({ recordId, currentVersion, onRevert }: V
     try {
       await api.post(`/records/${recordId}/versions/${version}/revert`)
       onRevert()
-    } catch (err) {
+    } catch (_err) {
       alert('Failed to revert version. You may need Administrator privileges.')
     } finally {
       setIsReverting(false)
@@ -132,7 +128,7 @@ export default function VersionHistory({ recordId, currentVersion, onRevert }: V
               <div className="px-4 pb-4 border-t pt-4 bg-muted/20 animate-in fade-in slide-in-from-top-1 duration-200">
                 <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Snapshot Data</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(v.data_snapshot).map(([key, val]: [string, any]) => {
+                  {Object.entries(v.data_snapshot).map(([key, val]) => {
                     const isDiff = prevVersion && JSON.stringify(val) !== JSON.stringify(prevVersion.data_snapshot[key])
                     
                     if (['id', 'created_at', 'updated_at', 'version', 'search_vector'].includes(key)) return null

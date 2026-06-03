@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Save, X, Loader2, Plus } from 'lucide-react'
+import { Save, X, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 
 // Core Required Fields Schema
@@ -21,7 +21,7 @@ const baseRecordSchema = z.object({
   year: z.string().regex(/^\d{4}$/, 'Year must be exactly 4 digits'),
   record_type_id: z.string().optional().nullable().or(z.literal('')),
   category_id: z.string().optional().nullable().or(z.literal('')),
-  custom_fields: z.record(z.any()).default({}),
+  custom_fields: z.record(z.string(), z.unknown()).default({}),
   tags: z.array(z.string()).default([]),
 })
 
@@ -40,7 +40,7 @@ type RecordFormValues = {
   year: string
   record_type_id?: string | null
   category_id?: string | null
-  custom_fields: Record<string, any>
+  custom_fields: Record<string, unknown>
   tags: string[]
 }
 
@@ -51,7 +51,10 @@ interface RecordTypeField {
   field_type: string
   is_required: boolean
   default_value?: string
-  validation_rules?: any
+  validation_rules?: {
+    options?: string[]
+    [key: string]: unknown
+  }
 }
 
 interface RecordType {
@@ -68,9 +71,31 @@ interface Category {
   children: Category[]
 }
 
+interface EntityType {
+  id: string
+  name: string
+}
+
+interface Entity {
+  id: string
+  name: string
+  entity_code: string
+}
+
+interface Department {
+  id: string
+  name: string
+}
+
+interface User {
+  id: string
+  email: string
+  user_id?: string
+}
+
 interface RecordFormProps {
   initialData?: Partial<RecordFormValues>
-  onSubmit: (data: any) => void
+  onSubmit: (data: RecordFormValues) => void
   onCancel: () => void
   title: string
 }
@@ -78,10 +103,10 @@ interface RecordFormProps {
 export default function RecordForm({ initialData, onSubmit, onCancel, title }: RecordFormProps) {
   const [recordTypes, setRecordTypes] = useState<RecordType[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [entityTypes, setEntityTypes] = useState<any[]>([])
-  const [entities, setEntities] = useState<any[]>([])
-  const [departments, setDepartments] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
+  const [entityTypes, setEntityTypes] = useState<EntityType[]>([])
+  const [entities, setEntities] = useState<Entity[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialData?.record_type_id || null)
   const [tagInput, setTagInput] = useState('')
@@ -120,42 +145,49 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
   const dynamicSchema = useMemo(() => {
     if (!selectedType) return baseRecordSchema
 
-    const customFieldsObj: any = {}
+    const customFieldsObj: Record<string, z.ZodTypeAny> = {}
     selectedType.fields.forEach(f => {
-      let fieldSchema: any
+      let fieldSchema: z.ZodTypeAny
       
       switch (f.field_type) {
-        case 'number':
+        case 'number': {
           fieldSchema = z.preprocess((val) => {
             if (val === '' || val === undefined || val === null) return null;
             const parsed = typeof val === 'string' ? parseFloat(val) : val;
-            return isNaN(parsed as any) ? null : parsed;
-          }, z.number({ invalid_type_error: 'Must be a number' }).nullable())
+            return isNaN(parsed as number) ? null : parsed;
+          }, z.number({ message: 'Must be a number' }).nullable())
           break
-        case 'boolean':
+        }
+        case 'boolean': {
           fieldSchema = z.boolean()
           break
-        case 'date':
+        }
+        case 'date': {
           fieldSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)')
           break
-        case 'enum':
+        }
+        case 'enum': {
           const options = f.validation_rules?.options || []
           fieldSchema = options.length > 0 ? z.enum(options as [string, ...string[]]) : z.string()
           break
+        }
         case 'user':
-        case 'link':
-          fieldSchema = z.string()
-          if (f.field_type === 'link') fieldSchema = fieldSchema.url('Must be a valid URL')
+        case 'link': {
+          let s = z.string()
+          if (f.field_type === 'link') s = s.url('Must be a valid URL')
+          fieldSchema = s
           break
-        default:
+        }
+        default: {
           fieldSchema = z.string()
+        }
       }
 
       if (f.is_required) {
         if (f.field_type === 'text' || f.field_type === 'textarea' || f.field_type === 'link') {
-          fieldSchema = fieldSchema.min(1, `${f.label} is required`)
+          fieldSchema = (fieldSchema as z.ZodString).min(1, `${f.label} is required`)
         } else if (f.field_type === 'number') {
-          fieldSchema = fieldSchema.refine(val => val !== null, `${f.label} is required`)
+          fieldSchema = (fieldSchema as any).refine((val: any) => val !== null, `${f.label} is required`)
         }
       } else {
         fieldSchema = fieldSchema.optional().nullable().or(z.literal(''))
@@ -193,9 +225,9 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
     setValue,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<any>({
-    resolver: zodResolver(dynamicSchema),
-    defaultValues
+  } = useForm<RecordFormValues>({
+    resolver: zodResolver(dynamicSchema) as any,
+    defaultValues: defaultValues as any
   })
 
   // Synchronize form with initialData if it changes
@@ -205,7 +237,7 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
         ...defaultValues, 
         ...initialData,
         year: initialData.year || new Date().getFullYear().toString()
-      })
+      } as any)
     }
   }, [initialData, reset, defaultValues])
 
@@ -249,7 +281,7 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
     fetchDepts()
   }, [watchedEntityId, entities, setValue])
 
-  const onFormSubmit = async (data: any) => {
+  const onFormSubmit = async (data: RecordFormValues) => {
     const payload = {
       ...data,
       record_type_id: data.record_type_id === '' ? null : data.record_type_id,

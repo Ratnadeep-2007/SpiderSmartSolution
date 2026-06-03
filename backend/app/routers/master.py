@@ -450,3 +450,23 @@ async def add_field_to_record_type(
     await db.refresh(db_field)
     return db_field
 
+
+@router.delete("/record-types/{rt_id}/fields/{field_id}")
+async def delete_field_from_record_type(
+    rt_id: uuid.UUID,
+    field_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(check_role(["SYSTEM_ADMIN"]))
+):
+    result = await db.execute(
+        select(RecordTypeField)
+        .where(RecordTypeField.id == field_id, RecordTypeField.record_type_id == rt_id)
+    )
+    db_field = result.scalar_one_or_none()
+    if not db_field:
+        raise HTTPException(status_code=404, detail="Field not found")
+        
+    await db.delete(db_field)
+    await db.commit()
+    return {"status": "success"}
+

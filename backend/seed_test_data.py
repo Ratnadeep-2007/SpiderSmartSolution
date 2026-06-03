@@ -11,7 +11,7 @@ from datetime import date
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    DATABASE_URL = "postgresql+asyncpg://postgres.emywxyvirwuygohpjxus:ratnadip123@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    DATABASE_URL = "postgresql+asyncpg://postgres:ratnadip123@db.emywxyvirwuygohpjxus.supabase.co:5432/postgres"
 
 # Import models
 import sys

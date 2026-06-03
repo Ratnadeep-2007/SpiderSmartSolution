@@ -9,7 +9,6 @@ import {
   Loader2,
   CheckCircle2,
   X,
-  FileText,
   Layout,
   Settings2,
   FolderTree,
@@ -38,6 +37,7 @@ export default function AdminMaster() {
   const [newItemEntityId, setNewItemEntityId] = useState('')
   const [newItemEntityCode, setNewItemEntityCode] = useState('')
   const [newItemParentId, setNewItemParentId] = useState('')
+  const [newItemEntityTypeId, setNewItemEntityTypeId] = useState('')
   
   // Field Builder State
   const [selectedRt, setSelectedRt] = useState<any>(null)
@@ -49,7 +49,6 @@ export default function AdminMaster() {
   const [newFieldOptions, setNewFieldOptions] = useState('')
 
   const fetchMasterData = async () => {
-    setLoading(true)
     try {
       const [etRes, eRes, dRes, rtRes, catRes] = await Promise.all([
         api.get('/master/entity-types'),
@@ -81,7 +80,7 @@ export default function AdminMaster() {
         const updatedRt = rtRes.data.find((rt: any) => rt.id === selectedRt.id)
         if (updatedRt) setSelectedRt(updatedRt)
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error('Failed to fetch master data')
     } finally {
       setLoading(false)
@@ -89,7 +88,11 @@ export default function AdminMaster() {
   }
 
   useEffect(() => {
-    fetchMasterData()
+    const init = async () => {
+      setLoading(true)
+      await fetchMasterData()
+    }
+    init()
   }, [])
 
   const getAddLabel = () => {
@@ -115,7 +118,12 @@ export default function AdminMaster() {
           setIsSubmitting(false)
           return
         }
-        await api.post('/master/entities', { name: newItemName, entity_code: newItemEntityCode, is_active: true })
+        await api.post('/master/entities', { 
+          name: newItemName, 
+          entity_code: newItemEntityCode, 
+          entity_type_id: newItemEntityTypeId || null, 
+          is_active: true 
+        })
       } else if (activeTab === 'departments') {
         await api.post('/master/departments', { 
           name: newItemName, 
@@ -133,6 +141,8 @@ export default function AdminMaster() {
       toast.success(`${getAddLabel()} added successfully`)
       setNewItemName('')
       setNewItemParentId('')
+      setNewItemEntityTypeId('')
+      setNewItemEntityCode('')
       setShowAddModal(false)
       fetchMasterData()
     } catch (err) {
@@ -160,6 +170,7 @@ export default function AdminMaster() {
           return
         }
         payload.entity_code = newItemEntityCode
+        payload.entity_type_id = newItemEntityTypeId || null
       }
       if (activeTab === 'departments') payload.entity_id = newItemEntityId
       if (activeTab === 'categories') payload.parent_id = newItemParentId || null
@@ -171,6 +182,7 @@ export default function AdminMaster() {
       setNewItemName('')
       setNewItemEntityCode('')
       setNewItemParentId('')
+      setNewItemEntityTypeId('')
       setSelectedItem(null)
       setShowEditModal(false)
       fetchMasterData()
@@ -192,6 +204,9 @@ export default function AdminMaster() {
       
       await api.delete(`/master/${endpoint}/${item.id}`)
       toast.success(`${getAddLabel()} deleted successfully`)
+      if (endpoint === 'record-types' && selectedRt?.id === item.id) {
+        setSelectedRt(null)
+      }
       fetchMasterData()
     } catch (err: any) {
       toast.error(err.response?.data?.detail || `Failed to delete ${getAddLabel()}`)
@@ -223,6 +238,17 @@ export default function AdminMaster() {
       fetchMasterData()
     } catch (err) {
       toast.error('Failed to add field')
+    }
+  }
+
+  const handleDeleteField = async (fieldId: string) => {
+    if (!selectedRt || !window.confirm('Are you sure you want to delete this custom field?')) return
+    try {
+      await api.delete(`/master/record-types/${selectedRt.id}/fields/${fieldId}`)
+      toast.success('Field deleted successfully')
+      fetchMasterData()
+    } catch {
+      toast.error('Failed to delete field')
     }
   }
 
@@ -287,13 +313,15 @@ export default function AdminMaster() {
             <Download className="h-4 w-4" />
             Export CSV
           </button>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            Add {getAddLabel()}
-          </button>
+          {activeTab !== 'schemas' && (
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add {getAddLabel()}
+            </button>
+          )}
         </div>
       </div>
 
@@ -303,8 +331,7 @@ export default function AdminMaster() {
           { id: 'entities', name: 'Entities', icon: Building2 },
           { id: 'departments', name: 'Departments', icon: Home },
           { id: 'categories', name: 'Categories', icon: FolderTree },
-          { id: 'record-types', name: 'Record Types', icon: FileText },
-          { id: 'schemas', name: 'Field Schemas', icon: Layout },
+          { id: 'schemas', name: 'Record Types & Schemas', icon: Layout },
         ].map((tab) => (
           <button 
             key={tab.id}
@@ -328,23 +355,62 @@ export default function AdminMaster() {
         ) : activeTab === 'schemas' ? (
           <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-4 border-r pr-8">
-              <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-4">Record Types</h3>
-              {recordTypes.map(rt => (
-                <button
-                  key={rt.id}
-                  onClick={() => setSelectedRt(rt)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-lg border transition-all flex items-center justify-between group",
-                    selectedRt?.id === rt.id ? "bg-primary/5 border-primary ring-1 ring-primary/20" : "hover:border-primary/50"
-                  )}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Record Types</h3>
+                <button 
+                  onClick={() => {
+                    setSelectedItem(null)
+                    setNewItemName('')
+                    setShowAddModal(true)
+                  }}
+                  className="p-1.5 bg-muted hover:bg-muted-foreground/10 border rounded-lg text-[10px] font-bold text-primary flex items-center gap-1 transition-colors"
+                  title="Add Record Type"
                 >
-                  <div>
-                    <div className="font-bold text-sm">{rt.name}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase">{rt.fields?.length || 0} Custom Fields</div>
-                  </div>
-                  <ChevronRight className={cn("h-4 w-4 transition-transform", selectedRt?.id === rt.id ? "text-primary translate-x-1" : "text-muted-foreground")} />
+                  <Plus className="h-3 w-3" /> New Type
                 </button>
-              ))}
+              </div>
+              <div className="space-y-2">
+                {recordTypes.map(rt => (
+                  <div
+                    key={rt.id}
+                    onClick={() => setSelectedRt(rt)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-lg border transition-all flex items-center justify-between group cursor-pointer",
+                      selectedRt?.id === rt.id ? "bg-primary/5 border-primary ring-1 ring-primary/20" : "hover:border-primary/50"
+                    )}
+                  >
+                    <div>
+                      <div className="font-bold text-sm">{rt.name}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase">{rt.fields?.length || 0} Custom Fields</div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedItem(rt)
+                          setNewItemName(rt.name)
+                          setShowEditModal(true)
+                        }}
+                        className="p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity animate-in fade-in duration-200"
+                        title="Rename Record Type"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(rt)
+                        }}
+                        className="p-1 text-muted-foreground hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity animate-in fade-in duration-200"
+                        title="Delete Record Type"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                      <ChevronRight className={cn("h-4 w-4 transition-transform", selectedRt?.id === rt.id ? "text-primary translate-x-1" : "text-muted-foreground")} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             
             <div className="md:col-span-2">
@@ -382,7 +448,14 @@ export default function AdminMaster() {
                             </div>
                           </div>
                         </div>
-                        <button className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-rose-600 transition-all">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteField(f.id)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-rose-600 transition-all"
+                          title="Delete Field"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -412,8 +485,12 @@ export default function AdminMaster() {
               <thead className="bg-muted/50 border-b font-bold text-muted-foreground">
                 <tr>
                   <th className="px-6 py-4">Name</th>
-                  {(activeTab === 'departments' || activeTab === 'categories') && (
-                    <th className="px-6 py-4">{activeTab === 'departments' ? 'Parent Entity' : 'Parent Category'}</th>
+                  {(activeTab === 'departments' || activeTab === 'categories' || activeTab === 'entities') && (
+                    <th className="px-6 py-4">
+                      {activeTab === 'departments' ? 'Parent Entity' : 
+                       activeTab === 'categories' ? 'Parent Category' : 
+                       'Entity Type'}
+                    </th>
                   )}
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -447,6 +524,13 @@ export default function AdminMaster() {
                         </span>
                       </td>
                     )}
+                    {activeTab === 'entities' && (
+                      <td className="px-6 py-4">
+                        <span className="text-xs bg-muted px-2 py-1 rounded">
+                          {entityTypes.find(et => et.id === item.entity_type_id)?.name || 'None'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
                         <CheckCircle2 className="h-3 w-3" /> Active
@@ -458,6 +542,10 @@ export default function AdminMaster() {
                           onClick={() => {
                             setSelectedItem(item)
                             setNewItemName(item.name)
+                            if (activeTab === 'entities') {
+                              setNewItemEntityCode(item.entity_code || '')
+                              setNewItemEntityTypeId(item.entity_type_id || '')
+                            }
                             if (activeTab === 'departments') setNewItemEntityId(item.entity_id)
                             if (activeTab === 'categories') setNewItemParentId(item.parent_id || '')
                             setShowEditModal(true)
@@ -505,17 +593,32 @@ export default function AdminMaster() {
               </div>
 
               {activeTab === 'entities' && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Entity Code (2 Digits)</label>
-                  <input 
-                    type="text" 
-                    maxLength={2}
-                    value={newItemEntityCode}
-                    onChange={(e) => setNewItemEntityCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                    placeholder="e.g. 10"
-                  />
-                </div>
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Entity Code (2 Digits)</label>
+                    <input 
+                      type="text" 
+                      maxLength={2}
+                      value={newItemEntityCode}
+                      onChange={(e) => setNewItemEntityCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                      placeholder="e.g. 10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Entity Type</label>
+                    <select 
+                      value={newItemEntityTypeId}
+                      onChange={(e) => setNewItemEntityTypeId(e.target.value)}
+                      className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">Select Entity Type...</option>
+                      {entityTypes.map(et => (
+                        <option key={et.id} value={et.id}>{et.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               {activeTab === 'departments' && (
@@ -595,17 +698,32 @@ export default function AdminMaster() {
               </div>
 
               {activeTab === 'entities' && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Entity Code (2 Digits)</label>
-                  <input 
-                    type="text" 
-                    maxLength={2}
-                    value={newItemEntityCode}
-                    onChange={(e) => setNewItemEntityCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                    placeholder="e.g. 10"
-                  />
-                </div>
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Entity Code (2 Digits)</label>
+                    <input 
+                      type="text" 
+                      maxLength={2}
+                      value={newItemEntityCode}
+                      onChange={(e) => setNewItemEntityCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                      placeholder="e.g. 10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Entity Type</label>
+                    <select 
+                      value={newItemEntityTypeId}
+                      onChange={(e) => setNewItemEntityTypeId(e.target.value)}
+                      className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">Select Entity Type...</option>
+                      {entityTypes.map(et => (
+                        <option key={et.id} value={et.id}>{et.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               {activeTab === 'departments' && (

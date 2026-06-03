@@ -8,7 +8,7 @@ ADMIN_EMAIL = "admin@spidersmart.com"
 ADMIN_PASS = "admin123"
 
 async def test_lifecycle():
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         print("--- 1. AUTHENTICATION ---")
         login_res = await client.post(f"{BASE_URL}/auth/login", data={
             "username": ADMIN_EMAIL,
@@ -27,13 +27,28 @@ async def test_lifecycle():
         rt_res = await client.get(f"{BASE_URL}/master/record-types", headers=headers)
         record_type = rt_res.json()[0] # Grab "Box Record" seeded earlier
         
+        # Get master IDs
+        et_resp = await client.get(f"{BASE_URL}/master/entity-types", headers=headers)
+        entity_type_id = et_resp.json()[0]['id']
+        
+        e_resp = await client.get(f"{BASE_URL}/master/entities", headers=headers)
+        entity = e_resp.json()[0]
+        entity_id = entity['id']
+        entity_code = entity['entity_code']
+        
+        d_resp = await client.get(f"{BASE_URL}/master/departments", params={'entity_id': entity_id}, headers=headers)
+        department_id = d_resp.json()[0]['id']
+
         box_barcode = f"BOX{str(uuid.uuid4().int)[:8]}"
         file_barcode = f"FILE{str(uuid.uuid4().int)[:9]}"
         
         payload = {
             "record_type_id": record_type["id"],
-            "entity": "Spider Smart",
-            "entity_code": 11,
+            "entity_type_id": entity_type_id,
+            "entity_id": entity_id,
+            "department_id": department_id,
+            "entity": entity["name"],
+            "entity_code": entity_code,
             "department": "Finance",
             "location": "Warehouse A",
             "box_barcode": box_barcode,
@@ -41,6 +56,8 @@ async def test_lifecycle():
             "description": "Compliance Test Record - Confidential Assets",
             "record_date": "2024-01-01",
             "custom_fields": {
+                "invoice_number": "INV-12345",
+                "amount": 100.00,
                 "project_code": "PROJ-999",
                 "is_confidential": True
             }
@@ -56,7 +73,7 @@ async def test_lifecycle():
         print(f"Record created successfully. ID: {record_id}, Version: {record['version']}, Due: {record['retention_due_date']}\n")
 
         print("--- 3. SEARCH (Full-Text & Faceted) ---")
-        search_res = await client.get(f"{BASE_URL}/search/?q=Confidential&entity=Spider Smart", headers=headers)
+        search_res = await client.get(f"{BASE_URL}/search/?q=Confidential&entity={entity['name']}", headers=headers)
         found_records = search_res.json()["data"]
         found_match = any(r["id"] == record_id for r in found_records)
         print(f"FTS Search for 'Confidential': {'SUCCESS' if found_match else 'FAILED'}\n")

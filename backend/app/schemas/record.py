@@ -49,6 +49,11 @@ class RecordTypeMinimal(BaseModel):
     name: str
     model_config = ConfigDict(from_attributes=True)
 
+class CategoryMinimal(BaseModel):
+    id: uuid.UUID
+    name: str
+    model_config = ConfigDict(from_attributes=True)
+
 class RecordInDB(RecordBase):
     id: uuid.UUID
     version: int
@@ -60,6 +65,7 @@ class RecordInDB(RecordBase):
     updated_by: Optional[uuid.UUID]
     updated_at: datetime
     record_type: Optional[RecordTypeMinimal] = None
+    category: Optional[CategoryMinimal] = None
 
     model_config = ConfigDict(from_attributes=True)
 

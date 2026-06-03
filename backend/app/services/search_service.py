@@ -25,7 +25,7 @@ async def search_records(
     size: int = 50,
     current_user: Optional[User] = None
 ) -> Dict[str, Any]:
-    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type))
+    query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type), selectinload(InventoryRecord.category))
     
     # 0. Apply Security Scoping (For External Guests)
     if current_user and current_user.role == "EXTERNAL_GUEST" and current_user.scoped_filters:

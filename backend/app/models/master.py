@@ -41,7 +41,10 @@ class Entity(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False, unique=True)
     entity_code = Column(String, nullable=False, unique=True)
+    entity_type_id = Column(UUID(as_uuid=True), ForeignKey("entity_types.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, default=True)
+
+    entity_type = relationship("EntityType", backref=backref("entities", cascade="all, delete-orphan"))
 
 class Department(Base):
     __tablename__ = "departments"

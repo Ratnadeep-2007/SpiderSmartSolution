@@ -27,10 +27,9 @@ python -m venv venv
 python -m pip install -r requirements.txt
 
 # Run migrations/initialize DB
-# Copy content of backend/init_db.sql into Supabase SQL Editor and Run.
-
-# Start the server
-python -m uvicorn app.main:app --reload
+# IMPORTANT: If you are seeing 500 errors on login, the database schema is likely outdated.
+# Copy the updated content of backend/init_db.sql into Supabase SQL Editor and Run it.
+# This will WIPE and RECREATE the tables with the correct schema.
 ```
 **Important:** Update `backend/.env` with your Supabase password. Remove the `[]` brackets entirely.
 `DATABASE_URL="postgresql+asyncpg://postgres.emywxyvirwuygohpjxus:YOUR_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres"`

@@ -4,11 +4,8 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
   Download,
   ExternalLink,
-  History,
-  Lock,
   Loader2,
   X,
   ChevronLeft,
@@ -35,6 +32,8 @@ interface InventoryRecord {
   description: string
   updated_at: string
   record_type?: { name: string }
+  category?: { id: string, name: string }
+  tags: string[]
   entity_code?: string
   year?: number
 }
@@ -53,7 +52,6 @@ export default function Records() {
   const [records, setRecords] = useState<InventoryRecord[]>([])
   const [total, setTotal] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<InventoryRecord | null>(null)
@@ -68,26 +66,29 @@ export default function Records() {
 
   const fetchRecords = useCallback(async () => {
     setIsLoading(true)
-    setError(null)
     try {
       const params = new URLSearchParams(searchParams)
       const res = await api.get('/search/', { params })
       setRecords(res.data.data)
       setTotal(res.data.total)
-    } catch (err) {
-      setError('Failed to load records. Make sure the backend is running.')
+    } catch (_err) {
+      console.error('Failed to load records. Make sure the backend is running.')
     } finally {
       setIsLoading(false)
     }
   }, [searchParams])
 
   useEffect(() => {
-    fetchRecords()
+    const init = async () => {
+      setIsLoading(true)
+      await fetchRecords()
+    }
+    init()
   }, [fetchRecords])
 
-  const updateFilters = (newFilters: any) => {
+  const updateFilters = (newFilters: Record<string, string | undefined>) => {
     const cleaned = Object.fromEntries(
-      Object.entries(newFilters).filter(([_, v]) => v !== undefined && v !== '')
+      Object.entries(newFilters).filter(([_key, v]) => v !== undefined && v !== '')
     )
     setSearchParams({ ...cleaned, page: '1' }) // Reset to page 1 on filter change
   }
@@ -98,7 +99,7 @@ export default function Records() {
     try {
       const res = await api.get(`/records/barcode/${barcodeLookup}`)
       navigate(`/records/${res.data.id}`)
-    } catch (err) {
+    } catch {
       alert('Barcode not found')
     }
   }
@@ -108,8 +109,9 @@ export default function Records() {
       await api.post('/records/', data)
       setIsCreateModalOpen(false)
       fetchRecords()
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to create record')
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      alert(error.response?.data?.detail || 'Failed to create record')
     }
   }
 
@@ -122,11 +124,12 @@ export default function Records() {
       setIsEditModalOpen(false)
       setSelectedRecord(null)
       fetchRecords()
-    } catch (err: any) {
-      if (err.response?.status === 409) {
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number, data?: { detail?: string } } };
+      if (error.response?.status === 409) {
         alert('CONFLICT: This record was modified by another user. Please refresh.')
       } else {
-        alert(err.response?.data?.detail || 'Failed to update record')
+        alert(error.response?.data?.detail || 'Failed to update record')
       }
     }
   }
@@ -136,8 +139,9 @@ export default function Records() {
     try {
       await api.delete(`/records/${id}`)
       fetchRecords()
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to delete record')
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      alert(error.response?.data?.detail || 'Failed to delete record')
     }
   }
 
@@ -155,7 +159,7 @@ export default function Records() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-    } catch (err) {
+    } catch {
       alert('Failed to generate export')
     } finally {
       setIsExporting(false)
@@ -195,7 +199,7 @@ export default function Records() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-    } catch (err) {
+    } catch (_err) {
       alert(`Failed to export ${format.toUpperCase()}`)
     }
   }
@@ -230,7 +234,7 @@ export default function Records() {
 
         <SavedSearches 
           currentParams={filters}
-          onApply={(params) => setSearchParams(params)}
+          onApply={(params) => setSearchParams(params as any)}
         />
 
         <div className="bg-card rounded-xl border shadow-sm p-4 space-y-4">
@@ -391,7 +395,8 @@ export default function Records() {
                         />
                       </th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground">Barcodes</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground">Classification</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">Origin</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">Taxonomy</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground">Details</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Status</th>
                       <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
@@ -421,6 +426,24 @@ export default function Records() {
                             <span className="text-[10px] font-mono bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground">{record.entity_code}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">{record.department}</div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-xs font-bold text-primary truncate max-w-[120px]">
+                            {record.category?.name || 'Uncategorized'}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {record.tags?.slice(0, 2).map(tag => (
+                              <span key={tag} className="text-[9px] bg-primary/5 text-primary border border-primary/10 px-1 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                            {record.tags?.length > 2 && (
+                              <span className="text-[9px] text-muted-foreground">+{record.tags.length - 2}</span>
+                            )}
+                            {(!record.tags || record.tags.length === 0) && (
+                              <span className="text-[9px] text-muted-foreground italic">no tags</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4 max-w-[200px]">
                           <div className="text-xs font-medium truncate">{record.description}</div>
@@ -528,7 +551,7 @@ export default function Records() {
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <RecordForm 
               title="Edit Inventory Record"
-              initialData={selectedRecord}
+              initialData={selectedRecord as any}
               onSubmit={handleEditRecord}
               onCancel={() => {
                 setIsEditModalOpen(false)

@@ -12,9 +12,7 @@ import {
   MapPin,
   Tag as TagIcon,
   Loader2,
-  AlertTriangle,
-  ShieldCheck,
-  ShieldAlert
+  AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
@@ -37,6 +35,7 @@ interface Record {
   created_at: string
   updated_at: string
   tags: string[]
+  category?: { id: string, name: string }
 }
 
 import { toast } from 'sonner'
@@ -52,7 +51,6 @@ export default function RecordDetail() {
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details')
 
   const fetchRecord = useCallback(async () => {
-    setIsLoading(true)
     try {
       const response = await api.get(`/records/${id}`)
       setRecord(response.data)
@@ -65,7 +63,11 @@ export default function RecordDetail() {
   }, [id])
 
   useEffect(() => {
-    fetchRecord()
+    const init = async () => {
+      setIsLoading(true)
+      await fetchRecord()
+    }
+    init()
   }, [fetchRecord])
 
   const handleLegalHold = async () => {
@@ -275,6 +277,10 @@ export default function RecordDetail() {
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Department</p>
                   <p className="font-medium text-sm">{record.department}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Category</p>
+                  <p className="font-medium text-sm text-primary">{record.category?.name || 'Uncategorized'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Location</p>

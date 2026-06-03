@@ -39,6 +39,7 @@ class EntityType(EntityTypeBase):
 class EntityBase(BaseModel):
     name: str
     entity_code: str = Field(..., pattern=r'^\d{2}$', description="Exactly 2 numeric digits")
+    entity_type_id: Optional[uuid.UUID] = None
     is_active: bool = True
 
 class Entity(EntityBase):

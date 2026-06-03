@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { 
   ShieldCheck, 
   ShieldAlert, 
-  Search, 
-  Filter, 
   Eye, 
   Loader2,
   Calendar,
@@ -26,7 +24,7 @@ interface AuditLog {
   app_user_id?: string
   performed_at: string
   ip_address?: string
-  changes?: any
+  changes?: Record<string, unknown>
   tamper_hash: string
 }
 
@@ -63,13 +61,12 @@ export default function Audit() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch (_err) {
       alert('Failed to export audit logs')
     }
   }
 
   const fetchLogs = useCallback(async () => {
-    setIsLoading(true)
     try {
       const res = await api.get('/audit/', {
         params: {
@@ -89,7 +86,11 @@ export default function Audit() {
   }, [page, actionFilter, userFilter])
 
   useEffect(() => {
-    fetchLogs()
+    const init = async () => {
+      setIsLoading(true)
+      await fetchLogs()
+    }
+    init()
   }, [fetchLogs])
 
   const handleVerify = async () => {

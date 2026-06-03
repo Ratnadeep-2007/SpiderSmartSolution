@@ -8,8 +8,7 @@ import {
   ShieldCheck, 
   Settings,
   Users,
-  Tags,
-  Search
+  Tags
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

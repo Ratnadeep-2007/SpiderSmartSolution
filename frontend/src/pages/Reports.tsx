@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { 
   BarChart, 
   Bar, 
@@ -24,8 +24,6 @@ import {
   RefreshCcw,
   Settings,
   Table as TableIcon,
-  Filter,
-  Save,
   Plus,
   Clock,
   Mail,
@@ -49,19 +47,47 @@ const ALL_COLUMNS = [
   { id: 'created_at', label: 'Created At' },
 ]
 
+interface ReportDataItem {
+  name: string
+  value: number
+  [key: string]: any
+}
+
+interface UpcomingDisposition {
+  box_barcode: string
+  file_barcode: string
+  due_date: string
+  entity: string
+}
+
+interface LegalHold {
+  box_barcode: string
+  file_barcode: string
+  legal_hold_at: string
+  entity: string
+}
+
+interface ExportSchedule {
+  id: string
+  report_type: string
+  format: string
+  schedule_cron: string
+  email_list: string[]
+}
+
 export default function Reports() {
   const [activeReport, setActiveReport] = useState('entity')
-  const [data, setData] = useState<any[]>([])
+  const [data, setData] = useState<ReportDataItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [upcoming, setUpcoming] = useState<any[]>([])
-  const [holds, setHolds] = useState<any[]>([])
+  const [upcoming, setUpcoming] = useState<UpcomingDisposition[]>([])
+  const [holds, setHolds] = useState<LegalHold[]>([])
   
   // Custom Report Builder State
   const [selectedColumns, setSelectedColumns] = useState<string[]>(['box_barcode', 'file_barcode', 'entity', 'disposition_status'])
-  const [customReportData, setCustomReportData] = useState<any[]>([])
+  const [customReportData, setCustomReportData] = useState<Record<string, any>[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const reports = [
+  const reports = useMemo(() => [
     { id: 'entity', name: 'Records by Entity', icon: MapPin, endpoint: '/reports/by-entity' },
     { id: 'dept', name: 'Records by Department', icon: Users, endpoint: '/reports/by-department' },
     { id: 'year', name: 'Records by Year', icon: Calendar, endpoint: '/reports/by-year' },
@@ -72,9 +98,9 @@ export default function Reports() {
     { id: 'holds', name: 'Legal Holds Active', icon: FileText, endpoint: '/reports/active-holds' },
     { id: 'custom', name: 'Custom Report Builder', icon: Settings, endpoint: null },
     { id: 'schedules', name: 'Export Schedules', icon: Clock, endpoint: '/schedules' },
-  ]
+  ], [])
 
-  const [schedules, setSchedules] = useState<any[]>([])
+  const [schedules, setSchedules] = useState<ExportSchedule[]>([])
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [newSchType, setNewSchType] = useState('records')
   const [newSchFormat, setNewSchFormat] = useState('csv')
@@ -83,8 +109,20 @@ export default function Reports() {
 
   const handleExport = async (format: 'csv' | 'pdf') => {
     try {
-      const response = await api.get('/search/export', { 
-        params: { format },
+      const params: any = { 
+        report_type: activeReport,
+        format 
+      }
+      if (activeReport === 'custom') {
+        if (selectedColumns.length === 0) {
+          toast.error('Please select at least one column first')
+          return
+        }
+        params.columns = selectedColumns.join(',')
+      }
+      
+      const response = await api.get('/reports/export', { 
+        params,
         responseType: 'blob'
       })
       
@@ -92,17 +130,29 @@ export default function Reports() {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `report_export_${new Date().getTime()}.${extensions[format]}`)
+      
+      // Determine filename from content-disposition header if present
+      let filename = `report_export_${new Date().getTime()}.${extensions[format]}`
+      const disposition = response.headers['content-disposition']
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+        const matches = filenameRegex.exec(disposition)
+        if (matches != null && matches[1]) { 
+          filename = matches[1].replace(/['"]/g, '')
+        }
+      }
+
+      link.setAttribute('download', filename)
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err) {
-      alert(`Failed to export ${format.toUpperCase()}`)
+    } catch {
+      toast.error(`Failed to export ${format.toUpperCase()}`)
     }
   }
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       if (activeReport === 'custom') return
@@ -120,16 +170,19 @@ export default function Reports() {
       } else {
         setData(res.data)
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to fetch report data')
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeReport, reports])
 
   useEffect(() => {
-    fetchData()
-  }, [activeReport])
+    const init = async () => {
+      await fetchData()
+    }
+    init()
+  }, [fetchData])
 
   const handleGenerateCustom = async () => {
     setIsGenerating(true)
@@ -139,7 +192,7 @@ export default function Reports() {
       })
       setCustomReportData(res.data)
       toast.success('Custom report generated')
-    } catch (err) {
+    } catch {
       toast.error('Failed to generate report')
     } finally {
       setIsGenerating(false)
@@ -157,7 +210,7 @@ export default function Reports() {
       toast.success('Schedule created')
       setShowScheduleModal(false)
       fetchData()
-    } catch (err) {
+    } catch {
       toast.error('Failed to create schedule')
     }
   }
@@ -356,12 +409,12 @@ export default function Reports() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                 outerRadius={150}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {data.map((entry, index) => (
+                {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -397,26 +450,28 @@ export default function Reports() {
           >
             <RefreshCcw className={loading && activeReport !== 'custom' ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
           </button>
-          <div className="relative group">
-            <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all">
-              <Download className="h-4 w-4" />
-              Export Report
-            </button>
-            <div className="absolute right-0 top-full mt-2 w-40 bg-card border rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-20 overflow-hidden">
-              <button 
-                onClick={() => handleExport('csv')}
-                className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2"
-              >
-                <FileText className="h-3 w-3" /> CSV Format
+          {activeReport !== 'schedules' && (
+            <div className="relative group">
+              <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all">
+                <Download className="h-4 w-4" />
+                Export Report
               </button>
-              <button 
-                onClick={() => handleExport('pdf')}
-                className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2 border-t"
-              >
-                <AlertTriangle className="h-3 w-3 text-rose-500" /> PDF Document
-              </button>
+              <div className="absolute right-0 top-full mt-2 w-40 bg-card border rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-20 overflow-hidden">
+                <button 
+                  onClick={() => handleExport('csv')}
+                  className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2"
+                >
+                  <FileText className="h-3 w-3" /> CSV Format
+                </button>
+                <button 
+                  onClick={() => handleExport('pdf')}
+                  className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2 border-t"
+                >
+                  <AlertTriangle className="h-3 w-3 text-rose-500" /> PDF Document
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

@@ -112,6 +112,12 @@ async def _import_row(db, row, field_map, defaults, user_id):
         et = res.scalar_one_or_none()
         if et: record_data["entity_type_id"] = et.id
 
+    # Fallback to the first available EntityType if not resolved
+    if "entity_type_id" not in record_data or not record_data["entity_type_id"]:
+        res = await db.execute(select(EntityType).limit(1))
+        et = res.scalar_one_or_none()
+        if et: record_data["entity_type_id"] = et.id
+
     # Validate and create
     record_in = RecordCreate(**record_data)
     await create_record(db, record_in, user_id)

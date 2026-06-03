@@ -2,6 +2,8 @@
 -- Target: Supabase / PostgreSQL 15
 
 -- 1. CLEANUP (Drop existing tables to ensure a clean start)
+DROP TABLE IF EXISTS public.auto_classification_rules CASCADE;
+DROP TABLE IF EXISTS public.retention_policies CASCADE;
 DROP TABLE IF EXISTS public.saved_searches CASCADE;
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.record_versions CASCADE;
@@ -24,6 +26,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Users Table
 CREATE TABLE public.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT UNIQUE,
     email TEXT UNIQUE NOT NULL,
     hashed_password TEXT NOT NULL,
     role TEXT NOT NULL,
@@ -47,7 +50,8 @@ CREATE TABLE public.record_types (
 CREATE TABLE public.record_type_fields (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     record_type_id UUID REFERENCES public.record_types(id) ON DELETE CASCADE,
-    field_name TEXT NOT NULL,
+    name TEXT NOT NULL,
+    label TEXT NOT NULL,
     field_type TEXT NOT NULL,
     is_required BOOLEAN DEFAULT FALSE,
     default_value TEXT,
@@ -67,6 +71,7 @@ CREATE TABLE public.entities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
     entity_code TEXT UNIQUE NOT NULL,
+    entity_type_id UUID REFERENCES public.entity_types(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT TRUE
 );
 
@@ -94,6 +99,16 @@ CREATE TABLE public.categories (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Retention Policies
+CREATE TABLE public.retention_policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    retention_years SMALLINT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Inventory Records
 CREATE TABLE public.inventory_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,8 +124,8 @@ CREATE TABLE public.inventory_records (
     location TEXT NOT NULL,
     entity_type TEXT,
     
-    box_barcode CHAR(11) UNIQUE NOT NULL,
-    file_barcode CHAR(13) UNIQUE NOT NULL,
+    box_barcode VARCHAR(50) UNIQUE NOT NULL,
+    file_barcode VARCHAR(50) UNIQUE NOT NULL,
     description TEXT NOT NULL,
     record_date DATE NOT NULL,
     version INTEGER DEFAULT 1,
@@ -120,7 +135,7 @@ CREATE TABLE public.inventory_records (
     custom_fields JSONB DEFAULT '{}',
     tags TEXT [] DEFAULT '{}',
     category_id UUID REFERENCES public.categories(id),
-    retention_policy_id UUID,
+    retention_policy_id UUID REFERENCES public.retention_policies(id),
     retention_due_date DATE,
     created_by UUID REFERENCES public.users(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -130,12 +145,13 @@ CREATE TABLE public.inventory_records (
 
 -- Search Index (Full-Text Search)
 ALTER TABLE public.inventory_records ADD COLUMN search_vector tsvector GENERATED ALWAYS AS (
-    setweight(to_tsvector('english', coalesce(description, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(entity, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(department, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(entity_type, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(box_barcode, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(file_barcode, '')), 'A')
+    to_tsvector('english', coalesce(description, '') || ' ' || 
+    coalesce(entity, '') || ' ' || 
+    coalesce(department, '') || ' ' || 
+    coalesce(entity_type, '') || ' ' || 
+    coalesce(location, '') || ' ' || 
+    coalesce(box_barcode, '') || ' ' || 
+    coalesce(file_barcode, ''))
 ) STORED;
 
 CREATE INDEX inventory_search_idx ON public.inventory_records USING GIN (search_vector);
@@ -159,7 +175,8 @@ CREATE TABLE public.audit_logs (
     performed_at TIMESTAMPTZ DEFAULT NOW(),
     ip_address TEXT,
     changes JSONB,
-    tamper_hash TEXT NOT NULL
+    tamper_hash TEXT NOT NULL,
+    previous_hash TEXT
 );
 
 -- Saved Searches
@@ -168,6 +185,17 @@ CREATE TABLE public.saved_searches (
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     query_params JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Auto Classification Rules
+CREATE TABLE public.auto_classification_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    condition JSONB NOT NULL,
+    action JSONB NOT NULL,
+    priority SMALLINT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -383,7 +383,7 @@ export default function AdminClassification() {
       {/* Shared Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card w-full max-w-md rounded-2xl border shadow-2xl p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-card w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 {activeTab === 'categories' ? <FolderTree className="h-5 w-5 text-primary" /> : <Workflow className="h-5 w-5 text-primary" />}

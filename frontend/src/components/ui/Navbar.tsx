@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Bell, Search, LogOut, Settings, Sun, Moon, Monitor, UserCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useTheme } from '@/components/theme-provider'
@@ -19,6 +21,28 @@ import { Button } from '@/components/ui/button'
 export default function Navbar() {
   const { user, logout } = useAuthStore()
   const { setTheme } = useTheme()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Sync input value with the URL search query 'q' when on the records page
+  useEffect(() => {
+    if (location.pathname === '/records') {
+      const params = new URLSearchParams(location.search)
+      setSearchQuery(params.get('q') || '')
+    } else {
+      setSearchQuery('')
+    }
+  }, [location])
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/records?q=${encodeURIComponent(searchQuery.trim())}`)
+    } else {
+      navigate('/records')
+    }
+  }
 
   const getInitials = (email?: string) => {
     if (!email) return 'GU'
@@ -31,16 +55,18 @@ export default function Navbar() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-8 shadow-sm">
-      <div className="relative w-96 max-w-full">
+      <form onSubmit={handleSearchSubmit} className="relative w-96 max-w-full">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           <Search className="h-4 w-4 text-muted-foreground" />
         </div>
         <input
           type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="block w-full rounded-md border border-input bg-muted/50 py-1.5 pl-10 pr-3 text-sm placeholder-muted-foreground focus:border-primary focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary"
           placeholder="Global Search (Entity, Barcode, etc.)"
         />
-      </div>
+      </form>
 
       <div className="flex items-center space-x-4">
         <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground">

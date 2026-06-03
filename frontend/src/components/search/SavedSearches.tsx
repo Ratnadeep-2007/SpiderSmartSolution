@@ -5,12 +5,12 @@ import api from '@/lib/api'
 interface SavedSearch {
   id: string
   name: string
-  query_params: any
+  query_params: Record<string, string | undefined>
 }
 
 interface SavedSearchesProps {
-  onApply: (params: any) => void
-  currentParams: any
+  onApply: (params: Record<string, string | undefined>) => void
+  currentParams: Record<string, string | undefined>
 }
 
 export default function SavedSearches({ onApply, currentParams }: SavedSearchesProps) {
@@ -22,13 +22,16 @@ export default function SavedSearches({ onApply, currentParams }: SavedSearchesP
     try {
       const res = await api.get('/search/saved')
       setSavedSearches(res.data)
-    } catch (err) {
-      console.error('Failed to fetch saved searches:', err)
+    } catch (_err) {
+      console.error('Failed to fetch saved searches')
     }
   }
 
   useEffect(() => {
-    fetchSaved()
+    const init = async () => {
+      await fetchSaved()
+    }
+    init()
   }, [])
 
   const handleSaveCurrent = async () => {
@@ -40,8 +43,8 @@ export default function SavedSearches({ onApply, currentParams }: SavedSearchesP
         query_params: currentParams
       })
       setNewSearchName('')
-      fetchSaved()
-    } catch (err) {
+      await fetchSaved()
+    } catch (_err) {
       alert('Failed to save search')
     } finally {
       setIsSaving(false)
@@ -52,8 +55,8 @@ export default function SavedSearches({ onApply, currentParams }: SavedSearchesP
     if (!confirm('Delete this saved search?')) return
     try {
       await api.delete(`/search/saved/${id}`)
-      fetchSaved()
-    } catch (err) {
+      await fetchSaved()
+    } catch (_err) {
       alert('Failed to delete')
     }
   }
