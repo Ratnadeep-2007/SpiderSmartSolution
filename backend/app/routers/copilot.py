@@ -5,6 +5,7 @@ import time
 import json
 import re
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -14,7 +15,7 @@ from ..database import get_db
 from ..dependencies.auth import get_current_user
 from ..models.user import User
 from ..models.record import InventoryRecord
-from ..models.master import Entity, Department, Location, Category
+from ..models.master import Entity, Department, Location, Category, RecordType
 from ..schemas.copilot import CopilotChatRequest, CopilotChatResponse
 from ..config import settings
 from ..services.audit_service import create_audit_log
@@ -23,28 +24,32 @@ from ..services.audit_service import create_audit_log
 logger = logging.getLogger("app.routers.copilot")
 router = APIRouter(prefix="/copilot", tags=["copilot"])
 
-def get_platform_docs_condensed() -> str:
+def get_platform_docs_comprehensive() -> str:
     """
-    Returns a hyper-condensed system blueprint reference.
-    Replaces raw file reads to save 90% of prompt tokens while retaining 100% of key info.
+    Returns a highly condensed yet comprehensive system guide.
+    Explains all features so the Copilot can guide users on every capability.
     """
     return (
-        "=== CONDENSED SYSTEM MAP (Token-Optimized) ===\n"
-        "1. CREDENTIALS:\n"
+        "=== COMPREHENSIVE PLATFORM BLUEPRINT ===\n"
+        "1. USER ACCOUNTS & SECURITY:\n"
         "   - Default Admin: admin@spidersmart.com / admin123\n"
-        "2. DATABASE SCHEMA:\n"
-        "   - users: id, email, hashed_password, role (SYSTEM_ADMIN, AUDITOR, RECORDS_MANAGER, KNOWLEDGE_WORKER)\n"
-        "   - inventory_records: id, record_type_id, entity_id, department_id, box_barcode, file_barcode, description, record_date, legal_hold (bool), disposition_status (ACTIVE, DUE, DISPOSED)\n"
-        "   - categories: id, parent_id, name, path (hierarchical taxonomy)\n"
-        "   - audit_logs: SHA-256 chained logs (id, record_id, action, performed_by, changes, tamper_hash, previous_hash)\n"
-        "   - Others: record_types, record_type_fields, entities, departments, locations, tags, retention_policies, auto_classification_rules\n"
-        "3. NAVIGATION PATHS:\n"
-        "   - /records (Inventory list) | /audit (Audit log & Holds) | /reports (Report builder) | /import (CSV import)\n"
-        "   - /admin/users (Users CRUD) | /admin/master (Master metadata) | /admin/classification (Auto-classify rules)\n"
-        "4. SYSTEM BEHAVIORS:\n"
-        "   - Legal Holds: If legal_hold=True, modifications or sweeping for disposal is blocked.\n"
-        "   - Compliance Logs: Write actions must create a SHA-256 chained audit record (previous_hash -> current_hash).\n"
-        "   - Path Alias: Frontend absolute imports use '@/'."
+        "   - Roles: SYSTEM_ADMIN (full access), RECORDS_MANAGER (CRUD records/master data), AUDITOR (read-only audit trail), KNOWLEDGE_WORKER (CRUD records).\n"
+        "2. INVENTORY REGISTRY & RECORDS:\n"
+        "   - Tracks physical assets (Box Barcode & File Barcode required, must be unique).\n"
+        "   - Dynamic Fields: Schema-based record types (Physical Box, Individual File, Digital Media) support custom metadata fields.\n"
+        "   - Actions: Users can search, create, edit, or delete records. Deleting a record updates the Point-in-Time version table.\n"
+        "3. RETENTION & LEGAL HOLDS:\n"
+        "   - Retention policies (e.g. 7 years) auto-calculate expiration dates. Sweeps flag records past due as 'DUE'.\n"
+        "   - Legal Hold blocks modifications/deletions and halts the disposition sweep. Logged as LEGAL_HOLD_APPLIED/REMOVED.\n"
+        "   - Disposal: Admin/Records Manager can 'Dispose' records marked DUE (active status -> false, disposition -> DISPOSED).\n"
+        "4. AUDIT TRAIL:\n"
+        "   - Immutable log chain using SHA-256 where each log links to the previous_hash and generates a new tamper_hash.\n"
+        "5. REPORTING & BULK IMPORT:\n"
+        "   - Import: Upload CSV sheets mapped to DB headers at `/import`.\n"
+        "   - Reports: Custom report builder at `/reports` outputs PDF/Excel sheets and triggers background cron exports.\n"
+        "6. ROUTES MAP:\n"
+        "   - `/records` (Inventory list) | `/audit` (Audit & Holds) | `/reports` (Reports) | `/import` (CSV Upload)\n"
+        "   - `/admin/users` (Users panel) | `/admin/master` (Locations/Entities CRUD) | `/admin/classification` (Auto-classify rules)"
     )
 
 async def get_db_context(db: AsyncSession) -> Dict[str, Any]:
@@ -60,11 +65,11 @@ async def get_db_context(db: AsyncSession) -> Dict[str, Any]:
     due_result = await db.execute(select(func.count()).select_from(InventoryRecord).where(InventoryRecord.disposition_status == "DUE", InventoryRecord.is_active == True))
     due_count = due_result.scalar_one()
 
-    # Get master entities (samples)
+    # Get master entities
     entities_result = await db.execute(select(Entity.name).where(Entity.is_active == True).limit(3))
     entities = entities_result.scalars().all()
 
-    # Get departments (samples)
+    # Get departments
     depts_result = await db.execute(select(Department.name).where(Department.is_active == True).limit(3))
     departments = depts_result.scalars().all()
 
@@ -77,24 +82,27 @@ async def get_db_context(db: AsyncSession) -> Dict[str, Any]:
     }
 
 async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id: uuid.UUID) -> str:
+    """
+    Executes database write actions requested by the Copilot.
+    """
     action = action_data.get("action")
     barcode = action_data.get("barcode")
     reason = action_data.get("reason", "Action performed by Copilot")
     
-    if not action or not barcode:
-        return "Error: Missing action or barcode."
-        
-    result = await db.execute(
-        select(InventoryRecord).where(
-            (InventoryRecord.box_barcode == barcode) |
-            (InventoryRecord.file_barcode == barcode)
+    # Standard barcode-dependent read/updates
+    record = None
+    if barcode:
+        result = await db.execute(
+            select(InventoryRecord).where(
+                (InventoryRecord.box_barcode == barcode) |
+                (InventoryRecord.file_barcode == barcode)
+            )
         )
-    )
-    record = result.scalar_one_or_none()
-    if not record:
-        return f"Error: Barcode '{barcode}' not found."
+        record = result.scalar_one_or_none()
         
     if action == "apply_legal_hold":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
         if record.legal_hold:
             return f"Record '{barcode}' is already on hold."
         record.legal_hold = True
@@ -109,6 +117,8 @@ async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id
         return f"Success: Placed '{barcode}' on legal hold. Reason: {reason}."
         
     elif action == "remove_legal_hold":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
         if not record.legal_hold:
             return f"Record '{barcode}' is not on hold."
         record.legal_hold = False
@@ -123,6 +133,8 @@ async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id
         return f"Success: Removed hold from '{barcode}'. Reason: {reason}."
         
     elif action == "set_category":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
         category_name = action_data.get("category_name")
         if not category_name:
             return "Error: Missing category name."
@@ -144,6 +156,8 @@ async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id
         return f"Success: Updated category of '{barcode}' to '{category.name}'."
         
     elif action == "add_tag":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
         tag_name = action_data.get("tag_name")
         if not tag_name:
             return "Error: Missing tag name."
@@ -163,6 +177,170 @@ async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id
         )
         await db.commit()
         return f"Success: Added tag '{tag_name}' to '{barcode}'."
+
+    elif action == "create_record":
+        box_barcode = action_data.get("box_barcode")
+        file_barcode = action_data.get("file_barcode")
+        description = action_data.get("description")
+        record_date_str = action_data.get("record_date")
+        entity_name = action_data.get("entity", "Spider Smart")
+        dept_name = action_data.get("department", "Finance")
+        loc_name = action_data.get("location", "Warehouse A")
+        
+        if not box_barcode or not file_barcode or not description or not record_date_str:
+            return "Error: Missing box_barcode, file_barcode, description, or record_date."
+            
+        try:
+            record_date = datetime.strptime(record_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return "Error: record_date must be in YYYY-MM-DD format."
+            
+        # Look up a record type
+        rt_result = await db.execute(select(RecordType).limit(1))
+        record_type = rt_result.scalar_one_or_none()
+        if not record_type:
+            return "Error: No RecordType found in database."
+            
+        # Find or create Entity
+        ent_result = await db.execute(select(Entity).where(Entity.name.ilike(entity_name)))
+        entity = ent_result.scalar_one_or_none()
+        if not entity:
+            entity = Entity(name=entity_name, entity_code=entity_name[:3].upper(), is_active=True)
+            db.add(entity)
+            await db.flush()
+            
+        # Find or create Department
+        dept_result = await db.execute(select(Department).where(Department.name.ilike(dept_name)))
+        dept = dept_result.scalar_one_or_none()
+        if not dept:
+            dept = Department(name=dept_name, entity_id=entity.id, is_active=True)
+            db.add(dept)
+            await db.flush()
+            
+        # Find or create Location
+        loc_result = await db.execute(select(Location).where(Location.name.ilike(loc_name)))
+        location = loc_result.scalar_one_or_none()
+        if not location:
+            location = Location(name=loc_name, is_active=True)
+            db.add(location)
+            await db.flush()
+            
+        new_record = InventoryRecord(
+            record_type_id=record_type.id,
+            entity_id=entity.id,
+            department_id=dept.id,
+            entity=entity.name,
+            entity_code=entity.entity_code,
+            department=dept.name,
+            location=location.name,
+            box_barcode=box_barcode,
+            file_barcode=file_barcode,
+            description=description,
+            record_date=record_date,
+            created_by=user_id,
+            updated_by=user_id
+        )
+        db.add(new_record)
+        await db.flush()
+        
+        await create_audit_log(
+            db,
+            action="CREATE",
+            performed_by=user_id,
+            record_id=new_record.id,
+            changes={"box_barcode": box_barcode, "file_barcode": file_barcode, "description": description}
+        )
+        await db.commit()
+        return f"Success: Created new inventory record for box '{box_barcode}'."
+
+    elif action == "edit_record":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
+            
+        description = action_data.get("description")
+        entity_name = action_data.get("entity")
+        dept_name = action_data.get("department")
+        loc_name = action_data.get("location")
+        
+        changes = {}
+        if description:
+            record.description = description
+            changes["description"] = description
+        if entity_name:
+            record.entity = entity_name
+            changes["entity"] = entity_name
+        if dept_name:
+            record.department = dept_name
+            changes["department"] = dept_name
+        if loc_name:
+            record.location = loc_name
+            changes["location"] = loc_name
+            
+        if not changes:
+            return "Error: No fields provided to update."
+            
+        record.updated_by = user_id
+        await create_audit_log(
+            db,
+            action="UPDATE",
+            performed_by=user_id,
+            record_id=record.id,
+            changes=changes
+        )
+        await db.commit()
+        return f"Success: Updated record '{barcode}' fields: {', '.join(changes.keys())}."
+
+    elif action == "dispose_record":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
+        if record.legal_hold:
+            return f"Error: Cannot dispose record '{barcode}' because it is under active Legal Hold."
+        if record.disposition_status != "DUE":
+            return f"Error: Record '{barcode}' is not marked as DUE for disposition."
+            
+        record.disposition_status = "DISPOSED"
+        record.is_active = False
+        
+        await create_audit_log(
+            db,
+            action="DISPOSE",
+            performed_by=user_id,
+            record_id=record.id,
+            changes={"status_change": "DISPOSED"}
+        )
+        await db.commit()
+        return f"Success: Disposed record '{barcode}'."
+
+    elif action == "create_location":
+        location_name = action_data.get("location_name")
+        if not location_name:
+            return "Error: Missing location_name parameter."
+        loc_result = await db.execute(select(Location).where(Location.name.ilike(location_name)))
+        location = loc_result.scalar_one_or_none()
+        if location:
+            return f"Location '{location_name}' already exists."
+        new_loc = Location(name=location_name, is_active=True)
+        db.add(new_loc)
+        await db.commit()
+        return f"Success: Created new location '{location_name}'."
+        
+    elif action == "create_category":
+        category_name = action_data.get("category_name")
+        if not category_name:
+            return "Error: Missing category_name parameter."
+        cat_result = await db.execute(select(Category).where(Category.name.ilike(category_name)))
+        category = cat_result.scalar_one_or_none()
+        if category:
+            return f"Category '{category_name}' already exists."
+        new_cat = Category(name=category_name)
+        db.add(new_cat)
+        await db.commit()
+        return f"Success: Created new category '{category_name}'."
+
+    elif action == "trigger_retention_sweep":
+        from ..services.retention_service import sweep_retention_dates
+        count = await sweep_retention_dates(db)
+        return f"Success: Triggered retention sweep. Marked {count} records as DUE."
         
     return f"Error: Unknown action '{action}'."
 
@@ -188,8 +366,8 @@ async def chat_with_copilot(
     nvidia_api_key = settings.NVIDIA_API_KEY or os.getenv("NVIDIA_API_KEY")
     gemini_api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     
-    # Gather condensed platform documentation
-    platform_docs = get_platform_docs_condensed()
+    # Gather comprehensive platform documentation
+    platform_docs = get_platform_docs_comprehensive()
     
     system_prompt = (
         "You are the SpiderSmart IMS Copilot, an AI assistant for an Inventory Management System.\n"
@@ -199,14 +377,23 @@ async def chat_with_copilot(
         f"- Entities (sample): {', '.join(context['entities'])} | Depts (sample): {', '.join(context['departments'])}\n\n"
         f"{platform_docs}\n\n"
         "=== EXECUTING ACTIONS ===\n"
-        "To perform database write tasks, output EXACTLY this JSON block. Do not use backticks or markdown quotes around it:\n"
+        "To perform database write tasks on behalf of the user, output EXACTLY this JSON block. Do not use backticks or markdown quotes around it:\n"
         "{\n"
         '  "tool_call": {\n'
-        '    "action": "apply_legal_hold" | "remove_legal_hold" | "set_category" | "add_tag",\n'
+        '    "action": "apply_legal_hold" | "remove_legal_hold" | "set_category" | "add_tag" | "create_record" | "edit_record" | "dispose_record" | "create_location" | "create_category" | "trigger_retention_sweep",\n'
         '    "barcode": "BARCODE_VALUE",\n'
         '    "reason": "Reason text",\n'
         '    "category_name": "Category value",\n'
-        '    "tag_name": "Tag value"\n'
+        '    "tag_name": "Tag value",\n'
+        '    "box_barcode": "Barcode for new box record",\n'
+        '    "file_barcode": "Barcode for new file record",\n'
+        '    "description": "Description for new/edited record",\n'
+        '    "record_date": "YYYY-MM-DD",\n'
+        '    "entity": "Entity name",\n'
+        '    "department": "Department name",\n'
+        '    "location": "Location name",\n'
+        '    "location_name": "Name for new location CRUD",\n'
+        '    "category_name": "Name for new category CRUD"\n'
         "  }\n"
         "}\n\n"
         "=== OUTPUT STYLE RULES (CRITICAL) ===\n"
@@ -305,7 +492,7 @@ async def chat_with_copilot(
         logger.info(f"Copilot Request Completed in {time.time() - start_time:.2f}s")
         return CopilotChatResponse(response=ai_text, actions_suggested=actions)
 
-    # 4. Smart Semantic Fallback (Offline Mode)
+    # 5. Smart Semantic Fallback (Offline Mode)
     fallback_start = time.time()
     response_text = ""
     
