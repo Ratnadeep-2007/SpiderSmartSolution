@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 class Settings(BaseSettings):
     # App Settings
@@ -19,7 +19,14 @@ class Settings(BaseSettings):
     
     # Audit
     AUDIT_LOG_READ_EVENTS: bool = False
+    
+    # AI & Copilot
+    GEMINI_API_KEY: Optional[str] = None
+    NVIDIA_API_KEY: Optional[str] = None
+    NVIDIA_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
+
 settings = Settings()
+
