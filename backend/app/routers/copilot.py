@@ -16,7 +16,7 @@ from ..dependencies.auth import get_current_user
 from ..models.user import User
 from ..models.record import InventoryRecord
 from ..models.master import Entity, Department, Location, Category, RecordType
-from ..schemas.copilot import CopilotChatRequest, CopilotChatResponse
+from ..schemas.copilot import CopilotChatRequest, CopilotChatResponse, CopilotExecuteRequest
 from ..config import settings
 from ..services.audit_service import create_audit_log
 
@@ -456,25 +456,28 @@ async def chat_with_copilot(
         except Exception as e:
             logger.error(f"Gemini API call failed: {str(e)}")
 
-    # Handle Intercepted Tool Calls in LLM Response
+    # Handle Intercepted Tool Calls in LLM Response (PROPOSE ONLY, NO EXECUTION YET)
     actions = []
+    pending_action = None
     if ai_text:
         # Match JSON block
         tool_call_match = re.search(r'\{\s*"tool_call"\s*:\s*(\{.*?\})\s*\}', ai_text, re.DOTALL)
         if tool_call_match:
             try:
                 tool_data = json.loads(tool_call_match.group(1))
-                execution_msg = await run_tool_action(db, tool_data, current_user.id)
+                logger.info(f"Intercepted Copilot tool call proposal: {tool_data}")
+                
+                # Strip the raw JSON block
                 clean_reply = ai_text.replace(tool_call_match.group(0), "").strip()
+                action_name = tool_data.get("action", "").replace("_", " ").upper()
+                barcode_str = f" for record '{tool_data.get('barcode')}'" if tool_data.get('barcode') else ""
                 
-                ai_text = clean_reply if clean_reply else "Tool action requested."
-                ai_text += f"\n\n📌 **Execution:** {execution_msg}"
-                
-                if "hold" in tool_data.get("action", ""):
-                    actions.append({"label": "View Audit Log", "route": "/audit"})
+                ai_text = clean_reply if clean_reply else f"I have prepared the action: **{action_name}**{barcode_str}."
+                ai_text += "\n\n⚠️ **Action requires your permission to proceed.** Please confirm or cancel below."
+                pending_action = tool_data
             except Exception as json_err:
                 logger.error(f"Tool parse failed: {str(json_err)}")
-                ai_text += "\n\n⚠️ **System Status:** Tool arguments malformed."
+                ai_text += "\n\n⚠️ **System Status:** Proposed tool arguments were malformed."
         else:
             # Clean conversational output: remove backticks if model generated any JSON in them
             ai_text = re.sub(r'```json.*?```', '', ai_text, flags=re.DOTALL).strip()
@@ -490,13 +493,13 @@ async def chat_with_copilot(
                 actions.append({"label": "View Records", "route": "/records"})
         
         logger.info(f"Copilot Request Completed in {time.time() - start_time:.2f}s")
-        return CopilotChatResponse(response=ai_text, actions_suggested=actions)
+        return CopilotChatResponse(response=ai_text, actions_suggested=actions, pending_action=pending_action)
 
-    # 5. Smart Semantic Fallback (Offline Mode)
+    # 4. Smart Semantic Fallback (Offline Mode)
     fallback_start = time.time()
     response_text = ""
     
-    # Offline Command Execution
+    # Offline Command Execution (Proposed confirmation)
     if msg.startswith("hold ") or msg.startswith("unhold ") or msg.startswith("tag ") or msg.startswith("categorize "):
         words = msg.split()
         cmd = words[0]
@@ -518,10 +521,8 @@ async def chat_with_copilot(
                 tool_data = {"action": "set_category", "barcode": barcode, "category_name": category}
                 
             if tool_data:
-                execution_msg = await run_tool_action(db, tool_data, current_user.id)
-                response_text = f"📌 **Execution:** {execution_msg}"
-                actions.append({"label": "View Audit Log", "route": "/audit"})
-                return CopilotChatResponse(response=response_text, actions_suggested=actions)
+                response_text = f"I've prepared the command:\n* **Command:** {cmd.upper()} record `{barcode}`\n\n⚠️ **Action requires your permission.**"
+                return CopilotChatResponse(response=response_text, actions_suggested=[], pending_action=tool_data)
 
     # Offline QA responses
     if "how many records" in msg or "total records" in msg:
@@ -567,3 +568,23 @@ async def chat_with_copilot(
         
     logger.info(f"Fallback complete. Total duration: {time.time() - start_time:.4f}s")
     return CopilotChatResponse(response=response_text, actions_suggested=actions)
+
+@router.post("/execute", response_model=Dict[str, Any])
+async def execute_copilot_action(
+    payload: CopilotExecuteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint called when the user confirms execution of a pending tool action.
+    """
+    logger.info(f"User confirmed execution of action '{payload.action}' via Copilot.")
+    action_dict = payload.model_dump(exclude_none=True)
+    
+    try:
+        execution_msg = await run_tool_action(db, action_dict, current_user.id)
+        logger.info(f"Execution result: {execution_msg}")
+        return {"status": "completed", "message": execution_msg}
+    except Exception as e:
+        logger.error(f"Failed to execute confirmed action: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database execution failed: {str(e)}")
