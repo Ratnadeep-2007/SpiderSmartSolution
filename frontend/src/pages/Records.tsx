@@ -322,11 +322,40 @@ export default function Records() {
           )}
         </div>
 
+        {/* AI Semantic Search Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gradient-to-r from-violet-500/5 to-indigo-500/5 border border-violet-500/10 rounded-xl p-3 shadow-sm animate-in fade-in duration-300">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="semantic-toggle"
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+              checked={searchParams.get('semantic') === 'true'}
+              onChange={(e) => {
+                const newParams = new URLSearchParams(searchParams)
+                if (e.target.checked) newParams.set('semantic', 'true')
+                else newParams.delete('semantic')
+                newParams.set('page', '1')
+                setSearchParams(newParams)
+              }}
+            />
+            <label htmlFor="semantic-toggle" className="text-xs font-semibold text-indigo-900 dark:text-indigo-400 cursor-pointer flex items-center gap-1.5 select-none">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+              </span>
+              Enable AI Semantic Search (Fuzzy & Contextual Matching)
+            </label>
+          </div>
+          <span className="text-[10px] text-muted-foreground sm:ml-auto">
+            Searches meaning and concepts instead of literal keyword matches.
+          </span>
+        </div>
+
         {/* Active Filter Chips */}
         {Object.keys(filters).length > (filters.page ? 1 : 0) && (
           <div className="flex flex-wrap gap-2">
             {Object.entries(filters).map(([k, v]) => {
-              if (k === 'page' || k === 'q') return null
+              if (k === 'page' || k === 'q' || k === 'semantic') return null
               return (
                 <div key={k} className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-medium border border-primary/20">
                   <span className="capitalize">{k.replace('_id', '')}</span>: {v}

@@ -30,6 +30,7 @@ async def perform_search(
     tags: Optional[List[str]] = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=100),
+    semantic: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -40,7 +41,8 @@ async def perform_search(
         location=location, 
         record_date=record_date, record_type_id=record_type_id, category_id=category_id,
         disposition_status=disposition_status, tags=tags,
-        page=page, size=size, current_user=current_user
+        page=page, size=size, current_user=current_user,
+        semantic=semantic
     )
 
 @router.get("/export")

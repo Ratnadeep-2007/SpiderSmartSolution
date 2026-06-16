@@ -127,6 +127,17 @@ async def create_record(db: AsyncSession, record_in: RecordCreate, user_id: uuid
     await evaluate_rules_for_record(db, db_record.id)
     await db.refresh(db_record)
 
+    # 5.1 Generate and assign vector embedding for semantic search
+    try:
+        from .embedding_service import get_embedding, get_record_text_representation
+        text_rep = get_record_text_representation(db_record)
+        embedding = await get_embedding(text_rep)
+        if embedding:
+            db_record.embedding = embedding
+    except Exception as emb_err:
+        import logging
+        logging.getLogger("app.services.record_service").error(f"Failed to generate embedding during create: {str(emb_err)}")
+
     # 5. Create the initial version snapshot
     snapshot = {
         column.name: getattr(db_record, column.name)
@@ -229,6 +240,17 @@ async def update_record(
     # 3. Refresh object to get classification results (tags, category_id)
     await db.refresh(db_record)
 
+    # 3.1 Update vector embedding for semantic search
+    try:
+        from .embedding_service import get_embedding, get_record_text_representation
+        text_rep = get_record_text_representation(db_record)
+        embedding = await get_embedding(text_rep)
+        if embedding:
+            db_record.embedding = embedding
+    except Exception as emb_err:
+        import logging
+        logging.getLogger("app.services.record_service").error(f"Failed to generate embedding during update: {str(emb_err)}")
+
     # 4. Create new version snapshot from fully updated object
     snapshot = {
         column.name: getattr(db_record, column.name)
@@ -294,6 +316,17 @@ async def revert_to_version(db: AsyncSession, record_id: uuid.UUID, version_num:
             
     db_record.version += 1
     db_record.updated_by = user_id
+    
+    # Recalculate vector embedding after reverting
+    try:
+        from .embedding_service import get_embedding, get_record_text_representation
+        text_rep = get_record_text_representation(db_record)
+        embedding = await get_embedding(text_rep)
+        if embedding:
+            db_record.embedding = embedding
+    except Exception as emb_err:
+        import logging
+        logging.getLogger("app.services.record_service").error(f"Failed to generate embedding during revert: {str(emb_err)}")
     
     # 4. Create a new version entry for this revert action
     full_data = {

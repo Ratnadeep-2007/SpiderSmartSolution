@@ -54,7 +54,7 @@ async def generate_ediscovery_zip(db: AsyncSession, record_ids: List[uuid.UUID])
                     "entity": r.entity,
                     "department": r.department,
                     "location": r.location,
-                    "date": r.record_date,
+                    "date": r.record_date.isoformat() if r.record_date else "",
                     "description": r.description,
                     "tags": r.tags,
                     "custom_fields": r.custom_fields,

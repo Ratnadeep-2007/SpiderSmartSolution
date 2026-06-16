@@ -19,10 +19,119 @@ from ..models.master import Entity, Department, Location, Category, RecordType
 from ..schemas.copilot import CopilotChatRequest, CopilotChatResponse, CopilotExecuteRequest
 from ..config import settings
 from ..services.audit_service import create_audit_log
+from ..models.audit_log import AuditLog
 
 # Initialize logger
 logger = logging.getLogger("app.routers.copilot")
 router = APIRouter(prefix="/copilot", tags=["copilot"])
+
+# Helper functions for AI Copilot Read Tools
+async def search_records_tool(db: AsyncSession, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    stmt = (
+        select(InventoryRecord)
+        .where(
+            InventoryRecord.is_active == True,
+            (InventoryRecord.description.ilike(f"%{query}%")) |
+            (InventoryRecord.box_barcode.ilike(f"%{query}%")) |
+            (InventoryRecord.file_barcode.ilike(f"%{query}%")) |
+            (InventoryRecord.entity.ilike(f"%{query}%")) |
+            (InventoryRecord.department.ilike(f"%{query}%")) |
+            (InventoryRecord.location.ilike(f"%{query}%"))
+        )
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    records = result.scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "box_barcode": r.box_barcode,
+            "file_barcode": r.file_barcode,
+            "description": r.description,
+            "entity": r.entity,
+            "department": r.department,
+            "location": r.location,
+            "disposition_status": r.disposition_status,
+            "legal_hold": r.legal_hold,
+            "tags": r.tags
+        }
+        for r in records
+    ]
+
+async def get_record_details_tool(db: AsyncSession, barcode: str) -> Dict[str, Any]:
+    stmt = select(InventoryRecord).where(
+        (InventoryRecord.box_barcode == barcode) |
+        (InventoryRecord.file_barcode == barcode)
+    )
+    result = await db.execute(stmt)
+    r = result.scalar_one_or_none()
+    if not r:
+        return {"error": f"Record with barcode '{barcode}' not found."}
+    return {
+        "id": str(r.id),
+        "box_barcode": r.box_barcode,
+        "file_barcode": r.file_barcode,
+        "description": r.description,
+        "entity": r.entity,
+        "department": r.department,
+        "location": r.location,
+        "disposition_status": r.disposition_status,
+        "legal_hold": r.legal_hold,
+        "tags": r.tags,
+        "record_date": str(r.record_date),
+        "is_active": r.is_active,
+        "created_by": str(r.created_by),
+        "updated_by": str(r.updated_by)
+    }
+
+async def list_categories_tool(db: AsyncSession) -> List[Dict[str, Any]]:
+    stmt = select(Category)
+    result = await db.execute(stmt)
+    categories = result.scalars().all()
+    return [{"id": str(c.id), "name": c.name} for c in categories]
+
+async def list_locations_tool(db: AsyncSession) -> List[Dict[str, Any]]:
+    stmt = select(Location).where(Location.is_active == True)
+    result = await db.execute(stmt)
+    locations = result.scalars().all()
+    return [{"id": str(l.id), "name": l.name} for l in locations]
+
+async def list_departments_tool(db: AsyncSession) -> List[Dict[str, Any]]:
+    stmt = select(Department).where(Department.is_active == True)
+    result = await db.execute(stmt)
+    depts = result.scalars().all()
+    return [{"id": str(d.id), "name": d.name, "entity_id": str(d.entity_id)} for d in depts]
+
+async def query_audit_logs_tool(db: AsyncSession, barcode: str = None, limit: int = 10) -> Any:
+    query = select(AuditLog)
+    if barcode:
+        rec_stmt = select(InventoryRecord.id).where(
+            (InventoryRecord.box_barcode == barcode) |
+            (InventoryRecord.file_barcode == barcode)
+        )
+        rec_res = await db.execute(rec_stmt)
+        rec_id = rec_res.scalar_one_or_none()
+        if rec_id:
+            query = query.where(AuditLog.record_id == rec_id)
+        else:
+            return {"error": f"Record with barcode '{barcode}' not found."}
+    
+    query = query.order_by(AuditLog.performed_at.desc()).limit(limit)
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    return [
+        {
+            "id": str(l.id),
+            "record_id": str(l.record_id) if l.record_id else None,
+            "action": l.action,
+            "performed_by": str(l.performed_by),
+            "performed_at": str(l.performed_at),
+            "changes": l.changes,
+            "tamper_hash": l.tamper_hash
+        }
+        for l in logs
+    ]
+
 
 def get_platform_docs_comprehensive() -> str:
     """
@@ -376,7 +485,19 @@ async def chat_with_copilot(
         f"- Active records: {context['total_records']} | Holds: {context['holds_count']} | Due: {context['due_count']}\n"
         f"- Entities (sample): {', '.join(context['entities'])} | Depts (sample): {', '.join(context['departments'])}\n\n"
         f"{platform_docs}\n\n"
-        "=== EXECUTING ACTIONS ===\n"
+        "=== READ-ONLY DATABASE TOOLS ===\n"
+        "If you need to query records, audit logs, categories, locations, or departments to answer the user's question, output EXACTLY this JSON block and nothing else. The backend will run the query and return the results to you so you can give a final answer. Do not use backticks or markdown quotes:\n"
+        "{\n"
+        '  "read_tool": {\n'
+        '    "name": "search_records" | "get_record_details" | "list_categories" | "list_locations" | "list_departments" | "query_audit_logs",\n'
+        '    "arguments": {\n'
+        '      "query": "search query text (only for search_records)",\n'
+        '      "barcode": "barcode value (only for get_record_details / query_audit_logs)",\n'
+        '      "limit": 5\n'
+        '    }\n'
+        '  }\n'
+        "}\n\n"
+        "=== EXECUTING WRITE ACTIONS ===\n"
         "To perform database write tasks on behalf of the user, output EXACTLY this JSON block. Do not use backticks or markdown quotes around it:\n"
         "{\n"
         '  "tool_call": {\n'
@@ -399,66 +520,123 @@ async def chat_with_copilot(
         "=== OUTPUT STYLE RULES (CRITICAL) ===\n"
         "- Be extremely concise. Avoid greetings, pleasantries, or chatty filler text (e.g. 'Hello', 'How can I help you today?').\n"
         "- Format answers in clean, bold bullet points.\n"
-        "- Do not explain actions if executing a tool call. Just output the JSON block."
+        "- If you are outputting a tool JSON block (read_tool or tool_call), output ONLY that raw JSON and nothing else. No conversational text."
     )
     
-    # Prioritize Nvidia Nemotron
     ai_text = ""
-    if nvidia_api_key:
-        try:
-            url = "https://integrate.api.nvidia.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {nvidia_api_key}" if nvidia_api_key != "local-ollama" else "Bearer DUMMY",
-                "Content-Type": "application/json"
-            }
-            if nvidia_api_key == "local-ollama":
-                url = "http://localhost:11434/v1/chat/completions"
-            
-            messages = [
-                {"role": "system", "content": system_prompt}
-            ]
-            for hist in payload.history:
-                role = "user" if hist.role == "user" else "assistant"
-                messages.append({"role": role, "content": hist.content})
-            messages.append({"role": "user", "content": payload.message})
+    pending_action = None
+    actions = []
+    
+    if nvidia_api_key or gemini_api_key:
+        # Construct message histories
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        for hist in payload.history:
+            role = "user" if hist.role == "user" else "assistant"
+            messages.append({"role": role, "content": hist.content})
+        messages.append({"role": "user", "content": payload.message})
 
-            json_body = {
-                "model": settings.NVIDIA_MODEL,
-                "messages": messages,
-                "temperature": 0.2,
-                "max_tokens": 512
-            }
-            
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(url, json=json_body, headers=headers, timeout=12.0)
-            if resp.status_code == 200:
-                ai_text = resp.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.error(f"Nvidia NIM API call failed: {str(e)}")
+        contents = [
+            {"role": "user", "parts": [{"text": f"SYSTEM CONTEXT:\n{system_prompt}"}]},
+            {"role": "model", "parts": [{"text": "Understood. I will respond concisely and output raw tool JSONs directly or answer user queries."}]}
+        ]
+        for hist in payload.history:
+            role = "user" if hist.role == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": hist.content}]})
+        contents.append({"role": "user", "parts": [{"text": payload.message}]})
 
-    # Fallback to Gemini
-    if not ai_text and gemini_api_key:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
-            contents = [
-                {"role": "user", "parts": [{"text": f"SYSTEM CONTEXT:\n{system_prompt}"}]},
-                {"role": "model", "parts": [{"text": "Understood. I will respond concisely and output raw tool JSONs directly."}]}
-            ]
-            for hist in payload.history:
-                role = "user" if hist.role == "user" else "model"
-                contents.append({"role": role, "parts": [{"text": hist.content}]})
-            contents.append({"role": "user", "parts": [{"text": payload.message}]})
+        max_iterations = 3
+        for iteration in range(max_iterations):
+            current_response = ""
             
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(url, json={"contents": contents}, headers={"Content-Type": "application/json"}, timeout=10.0)
-            if resp.status_code == 200:
-                ai_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            logger.error(f"Gemini API call failed: {str(e)}")
+            # 1. Prioritize Nvidia Nemotron NIM
+            if nvidia_api_key:
+                try:
+                    url = "https://integrate.api.nvidia.com/v1/chat/completions"
+                    headers = {
+                        "Authorization": f"Bearer {nvidia_api_key}" if nvidia_api_key != "local-ollama" else "Bearer DUMMY",
+                        "Content-Type": "application/json"
+                    }
+                    if nvidia_api_key == "local-ollama":
+                        url = "http://localhost:11434/v1/chat/completions"
+                    
+                    json_body = {
+                        "model": settings.NVIDIA_MODEL,
+                        "messages": messages,
+                        "temperature": 0.2,
+                        "max_tokens": 512
+                    }
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(url, json=json_body, headers=headers, timeout=12.0)
+                    if resp.status_code == 200:
+                        current_response = resp.json()["choices"][0]["message"]["content"]
+                except Exception as e:
+                    logger.error(f"Nvidia NIM API call failed: {str(e)}")
+
+            # 2. Fallback to Gemini Flash
+            if not current_response and gemini_api_key:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(url, json={"contents": contents}, headers={"Content-Type": "application/json"}, timeout=10.0)
+                    if resp.status_code == 200:
+                        current_response = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                except Exception as e:
+                    logger.error(f"Gemini API call failed: {str(e)}")
+
+            if not current_response:
+                break
+
+            # Parse read_tool request
+            read_tool_match = re.search(r'\{\s*"read_tool"\s*:\s*(\{.*?\})\s*\}', current_response, re.DOTALL)
+            if read_tool_match:
+                try:
+                    tool_data = json.loads(read_tool_match.group(1))
+                    tool_name = tool_data.get("name")
+                    args = tool_data.get("arguments", {})
+                    
+                    logger.info(f"Executing read_tool '{tool_name}' with args {args}")
+                    
+                    tool_result = None
+                    if tool_name == "search_records":
+                        tool_result = await search_records_tool(db, args.get("query", ""), args.get("limit", 5))
+                    elif tool_name == "get_record_details":
+                        tool_result = await get_record_details_tool(db, args.get("barcode", ""))
+                    elif tool_name == "list_categories":
+                        tool_result = await list_categories_tool(db)
+                    elif tool_name == "list_locations":
+                        tool_result = await list_locations_tool(db)
+                    elif tool_name == "list_departments":
+                        tool_result = await list_departments_tool(db)
+                    elif tool_name == "query_audit_logs":
+                        tool_result = await query_audit_logs_tool(db, args.get("barcode"), args.get("limit", 10))
+                    else:
+                        tool_result = {"error": f"Unknown tool '{tool_name}'"}
+                        
+                    tool_result_str = json.dumps(tool_result, default=str)
+                    logger.info(f"Tool Result: {tool_result_str[:200]}...")
+                    
+                    # Update message lists
+                    messages.append({"role": "assistant", "content": current_response})
+                    messages.append({"role": "user", "content": f"TOOL RESULT: {tool_result_str}"})
+                    
+                    contents.append({"role": "model", "parts": [{"text": current_response}]})
+                    contents.append({"role": "user", "parts": [{"text": f"TOOL RESULT: {tool_result_str}"}]})
+                    continue
+                except Exception as parse_err:
+                    logger.error(f"Failed to execute read_tool: {str(parse_err)}")
+                    messages.append({"role": "assistant", "content": current_response})
+                    messages.append({"role": "user", "content": f"TOOL ERROR: Failed to execute tool: {str(parse_err)}"})
+                    
+                    contents.append({"role": "model", "parts": [{"text": current_response}]})
+                    contents.append({"role": "user", "parts": [{"text": f"TOOL ERROR: Failed to execute tool: {str(parse_err)}"}]})
+                    continue
+            
+            ai_text = current_response
+            break
 
     # Handle Intercepted Tool Calls in LLM Response (PROPOSE ONLY, NO EXECUTION YET)
-    actions = []
-    pending_action = None
     if ai_text:
         # Match JSON block
         tool_call_match = re.search(r'\{\s*"tool_call"\s*:\s*(\{.*?\})\s*\}', ai_text, re.DOTALL)

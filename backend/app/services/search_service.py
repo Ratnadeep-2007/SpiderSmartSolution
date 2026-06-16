@@ -23,7 +23,8 @@ async def search_records(
     tags: Optional[List[str]] = None,
     page: int = 1,
     size: int = 50,
-    current_user: Optional[User] = None
+    current_user: Optional[User] = None,
+    semantic: bool = False
 ) -> Dict[str, Any]:
     query = select(InventoryRecord).options(selectinload(InventoryRecord.record_type), selectinload(InventoryRecord.category))
     
@@ -37,10 +38,26 @@ async def search_records(
         if "entity_type_id" in filters:
             query = query.where(InventoryRecord.entity_type_id == uuid.UUID(filters["entity_type_id"]))
 
-    # 1. Full-Text Search
+    # 1. Full-Text & Semantic Search
     if q and q.strip():
-        query = query.where(InventoryRecord.search_vector.op('@@')(func.plainto_tsquery('english', q)))
-        query = query.order_by(func.ts_rank(InventoryRecord.search_vector, func.plainto_tsquery('english', q)).desc())
+        if semantic:
+            from .embedding_service import get_embedding
+            try:
+                query_emb = await get_embedding(q)
+                if query_emb:
+                    query = query.where(InventoryRecord.embedding != None)
+                    query = query.order_by(InventoryRecord.embedding.cosine_distance(query_emb).asc())
+                else:
+                    query = query.where(InventoryRecord.search_vector.op('@@')(func.plainto_tsquery('english', q)))
+                    query = query.order_by(func.ts_rank(InventoryRecord.search_vector, func.plainto_tsquery('english', q)).desc())
+            except Exception as e:
+                import logging
+                logging.getLogger("app.services.search_service").error(f"Semantic search failed, falling back to full-text: {str(e)}")
+                query = query.where(InventoryRecord.search_vector.op('@@')(func.plainto_tsquery('english', q)))
+                query = query.order_by(func.ts_rank(InventoryRecord.search_vector, func.plainto_tsquery('english', q)).desc())
+        else:
+            query = query.where(InventoryRecord.search_vector.op('@@')(func.plainto_tsquery('english', q)))
+            query = query.order_by(func.ts_rank(InventoryRecord.search_vector, func.plainto_tsquery('english', q)).desc())
     else:
         query = query.order_by(InventoryRecord.created_at.desc())
 

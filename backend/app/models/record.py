@@ -4,6 +4,7 @@ from sqlalchemy import Column, String, Integer, DateTime, UUID, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 from ..database import Base
 
 class InventoryRecord(Base):
@@ -46,6 +47,9 @@ class InventoryRecord(Base):
     
     # Custom Fields Store
     custom_fields = Column(JSON, default={})
+    
+    # Vector Embeddings for Semantic Search
+    embedding = Column(Vector(3072), nullable=True)
     
     # Metadata
     created_by = Column(UUID(as_uuid=True))
