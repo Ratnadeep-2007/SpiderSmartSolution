@@ -135,30 +135,46 @@ async def query_audit_logs_tool(db: AsyncSession, barcode: str = None, limit: in
 
 def get_platform_docs_comprehensive() -> str:
     """
-    Returns a highly condensed yet comprehensive system guide.
+    Returns a comprehensive system guide with step-by-step instructions.
     Explains all features so the Copilot can guide users on every capability.
     """
     return (
-        "=== COMPREHENSIVE PLATFORM BLUEPRINT ===\n"
+        "=== COMPREHENSIVE PLATFORM BLUEPRINT & HOW-TO GUIDE ===\n"
         "1. USER ACCOUNTS & SECURITY:\n"
         "   - Default Admin: admin@spidersmart.com / admin123\n"
         "   - Roles: SYSTEM_ADMIN (full access), RECORDS_MANAGER (CRUD records/master data), AUDITOR (read-only audit trail), KNOWLEDGE_WORKER (CRUD records).\n"
         "2. INVENTORY REGISTRY & RECORDS:\n"
         "   - Tracks physical assets (Box Barcode & File Barcode required, must be unique).\n"
         "   - Dynamic Fields: Schema-based record types (Physical Box, Individual File, Digital Media) support custom metadata fields.\n"
-        "   - Actions: Users can search, create, edit, or delete records. Deleting a record updates the Point-in-Time version table.\n"
+        "   - How to Create/Edit: Go to the Records page (`/records`), click 'Add Record', fill in barcodes and metadata. To edit, click edit on a record row.\n"
         "3. RETENTION & LEGAL HOLDS:\n"
-        "   - Retention policies (e.g. 7 years) auto-calculate expiration dates. Sweeps flag records past due as 'DUE'.\n"
-        "   - Legal Hold blocks modifications/deletions and halts the disposition sweep. Logged as LEGAL_HOLD_APPLIED/REMOVED.\n"
-        "   - Disposal: Admin/Records Manager can 'Dispose' records marked DUE (active status -> false, disposition -> DISPOSED).\n"
+        "   - Retention policies (e.g. 7-year retention) automatically calculate expiration dates. Nightly sweeps flag records past their retention date as 'DUE'.\n"
+        "   - Legal Holds: Blocks any modifications or deletions of records. Halts the disposition sweep.\n"
+        "   - How to place a Legal Hold: Go to the Audit & Holds page (`/audit`), search for a record by barcode, and click 'Place Hold'. Explain the reason when prompted.\n"
+        "   - How to dispose of records: Admins/Records Managers can navigate to the Retention dashboard to view records marked 'DUE' and click 'Dispose' to mark them as 'DISPOSED' (which moves them to inactive status).\n"
         "4. AUDIT TRAIL:\n"
-        "   - Immutable log chain using SHA-256 where each log links to the previous_hash and generates a new tamper_hash.\n"
-        "5. REPORTING & BULK IMPORT:\n"
-        "   - Import: Upload CSV sheets mapped to DB headers at `/import`.\n"
-        "   - Reports: Custom report builder at `/reports` outputs PDF/Excel sheets and triggers background cron exports.\n"
-        "6. ROUTES MAP:\n"
-        "   - `/records` (Inventory list) | `/audit` (Audit & Holds) | `/reports` (Reports) | `/import` (CSV Upload)\n"
-        "   - `/admin/users` (Users panel) | `/admin/master` (Locations/Entities CRUD) | `/admin/classification` (Auto-classify rules)"
+        "   - Immutable, tamper-evident audit log using SHA-256 cryptographic chaining (each log stores a tamper_hash of its content + the previous log's hash).\n"
+        "   - How to view/export: Go to the Audit & Holds page (`/audit`) to view logs or export them as a CSV for forensic compliance audits.\n"
+        "5. BULK DATA IMPORT (UPLOAD RECORDS IN BULK):\n"
+        "   - Support: Users can upload .csv or .xlsx spreadsheets to create multiple inventory records at once.\n"
+        "   - Step-by-Step Bulk Upload Process:\n"
+        "     1. Navigate to the Import page (`/import`) using the sidebar or browser URL.\n"
+        "     2. Upload File: Drag and drop or browse to select your CSV or Excel file. The system will parse and show a data preview.\n"
+        "     3. Map Fields: Select which column in your file maps to the required system fields (e.g. Box Barcode -> your file's box barcode column, Description -> your description column, etc.).\n"
+        "     4. Default Fallbacks: Set optional default values (e.g., fallback Entity or Location) to use if your file has missing values.\n"
+        "     5. Process & Review: Click 'Start Import Process'. When completed, review the success count and the Error Log indicating any row validation failures.\n"
+        "6. ANALYTICS & REPORTS:\n"
+        "   - Custom Report Builder: Go to the Reports page (`/reports`), select groups, columns, and date filters, and click 'Build'.\n"
+        "   - Export formats: Custom reports can be downloaded as Excel or PDF documents.\n"
+        "   - Scheduled Exports: Create cron-based schedules (e.g., weekly) on the Reports page to automatically generate and export reports.\n"
+        "7. SYSTEM NAVIGATION & ROUTES:\n"
+        "   - `/records` - View, filter, and search inventory list.\n"
+        "   - `/audit` - View tamper-evident audit trail, manage legal holds, and export forensic logs.\n"
+        "   - `/reports` - Custom report builder, Excel/PDF export, and scheduled cron exports.\n"
+        "   - `/import` - Bulk CSV/XLSX data upload and field mapping wizard.\n"
+        "   - `/admin/users` - User management panel.\n"
+        "   - `/admin/master` - Entity, Department, and Location CRUD.\n"
+        "   - `/admin/classification` - Custom rules engine for automated record categorization."
     )
 
 async def get_db_context(db: AsyncSession) -> Dict[str, Any]:
@@ -518,8 +534,9 @@ async def chat_with_copilot(
         "  }\n"
         "}\n\n"
         "=== OUTPUT STYLE RULES (CRITICAL) ===\n"
-        "- Be extremely concise. Avoid greetings, pleasantries, or chatty filler text (e.g. 'Hello', 'How can I help you today?').\n"
-        "- Format answers in clean, bold bullet points.\n"
+        "- Be helpful, clear, and comprehensive. Provide detailed step-by-step guidance when explaining features.\n"
+        "- Avoid unnecessary filler, but ensure you give enough detail so the user knows exactly what to do.\n"
+        "- Use formatting (like numbered lists, bold text, and bullet points) to make guides easy to read.\n"
         "- If you are outputting a tool JSON block (read_tool or tool_call), output ONLY that raw JSON and nothing else. No conversational text."
     )
     
@@ -577,7 +594,7 @@ async def chat_with_copilot(
             # 2. Fallback to Gemini Flash
             if not current_response and gemini_api_key:
                 try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_api_key}"
                     async with httpx.AsyncClient() as client:
                         resp = await client.post(url, json={"contents": contents}, headers={"Content-Type": "application/json"}, timeout=10.0)
                     if resp.status_code == 200:
