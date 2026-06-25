@@ -7,10 +7,12 @@ import {
   Loader2,
   Table as TableIcon,
   Settings,
-  Database
+  Database,
+  Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 const RECORD_FIELDS = [
   { name: 'box_barcode', label: 'Box Barcode', required: true },
@@ -32,6 +34,21 @@ interface ImportResult {
   errors: { row: number; error: string }[]
 }
 
+interface HarmDiff {
+  row_index: number
+  has_changes: boolean
+  changes: Record<string, { original: string; corrected: string }>
+  corrected_row: Record<string, string>
+}
+
+interface HarmResult {
+  method: string
+  total_rows: number
+  changed_rows: number
+  unchanged_rows: number
+  diffs: HarmDiff[]
+}
+
 export default function Import() {
   const [step, setStep] = useState(1)
   const [file, setFile] = useState<File | null>(null)
@@ -41,6 +58,11 @@ export default function Import() {
   const [defaults, setDefaults] = useState<Record<string, string>>({})
   const [isProcessing, setIsProcessing] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+
+  // Harmonization state
+  const [harmResult, setHarmResult] = useState<HarmResult | null>(null)
+  const [editedRows, setEditedRows] = useState<Record<string, string>[]>([])
+  const [isHarmonizing, setIsHarmonizing] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -72,7 +94,7 @@ export default function Import() {
   const handleProcess = async () => {
     if (!file) return
     setIsProcessing(true)
-    
+
     const formData = new FormData()
     formData.append('file', file)
     formData.append('field_map', JSON.stringify(fieldMap))
@@ -81,9 +103,52 @@ export default function Import() {
     try {
       const res = await api.post('/import/process', formData)
       setImportResult(res.data)
-      setStep(3)
+      setStep(4) // skip harmonization for full import, go to result
     } catch (_err) {
-      alert('Import failed')
+      toast.error('Import failed')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleHarmonize = async () => {
+    if (!file) return
+    setIsHarmonizing(true)
+    try {
+      // Parse full CSV to rows for harmonization
+      const text = await file.text()
+      const lines = text.split('\n').filter(Boolean)
+      const hdrs = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
+      const rows: Record<string, string>[] = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+        const obj: Record<string, string> = {}
+        hdrs.forEach((h, i) => { obj[h] = vals[i] || '' })
+        // Also map to record field names
+        RECORD_FIELDS.forEach(f => {
+          const col = fieldMap[f.name]
+          if (col && obj[col] !== undefined) obj[f.name] = obj[col]
+        })
+        return { ...defaults, ...obj }
+      })
+      const res = await api.post('/harmonize/preview', { rows: rows.slice(0, 200) })
+      setHarmResult(res.data)
+      setEditedRows(res.data.diffs.map((d: HarmDiff) => d.corrected_row))
+      setStep(3)
+    } catch {
+      toast.error('Harmonization failed')
+    } finally {
+      setIsHarmonizing(false)
+    }
+  }
+
+  const handleCommitHarmonized = async () => {
+    setIsProcessing(true)
+    try {
+      const res = await api.post('/harmonize/commit', { rows: editedRows })
+      setImportResult(res.data)
+      setStep(4)
+    } catch {
+      toast.error('Commit failed')
     } finally {
       setIsProcessing(false)
     }
@@ -98,22 +163,27 @@ export default function Import() {
 
       {/* Stepper */}
       <div className="flex items-center gap-4">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex items-center gap-2">
+        {[
+          { n: 1, label: 'Upload' },
+          { n: 2, label: 'Map Fields' },
+          { n: 3, label: 'Harmonize' },
+          { n: 4, label: 'Review' },
+        ].map(({ n, label }) => (
+          <div key={n} className="flex items-center gap-2">
             <div className={cn(
               "h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border transition-all",
-              step === s ? "bg-primary text-primary-foreground border-primary" : 
-              step > s ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"
+              step === n ? "bg-primary text-primary-foreground border-primary" : 
+              step > n ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"
             )}>
-              {step > s ? <CheckCircle2 className="h-5 w-5" /> : s}
+              {step > n ? <CheckCircle2 className="h-5 w-5" /> : n}
             </div>
             <span className={cn(
               "text-sm font-medium",
-              step === s ? "text-foreground" : "text-muted-foreground"
+              step === n ? "text-foreground" : "text-muted-foreground"
             )}>
-              {s === 1 ? "Upload" : s === 2 ? "Map Fields" : "Review"}
+              {label}
             </span>
-            {s < 3 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            {n < 4 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
           </div>
         ))}
       </div>
@@ -223,16 +293,24 @@ export default function Import() {
               </div>
               <div className="flex flex-col gap-2">
                 <button 
+                  onClick={handleHarmonize}
+                  disabled={isHarmonizing || isProcessing}
+                  className="w-full flex items-center justify-center gap-2 bg-violet-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-violet-700 transition-all disabled:opacity-50"
+                >
+                  {isHarmonizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Harmonize with AI
+                </button>
+                <button 
                   onClick={handleProcess}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isHarmonizing}
                   className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg font-bold shadow-sm hover:bg-primary/90 transition-all disabled:opacity-50"
                 >
-                  {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Import Process"}
+                  {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import Directly"}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setStep(1)}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isHarmonizing}
                   className="w-full border bg-background py-2 rounded-lg font-medium text-sm hover:bg-accent text-center transition-colors"
                 >
                   Go Back & Change File
@@ -243,7 +321,90 @@ export default function Import() {
         </div>
       )}
 
-      {step === 3 && importResult && (
+      {step === 3 && harmResult && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-lg">Data Harmonization Review</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Method: <span className="font-medium capitalize">{harmResult.method.replace('_', ' ')}</span>
+                {' · '}{harmResult.changed_rows} of {harmResult.total_rows} rows corrected
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCommitHarmonized}
+                disabled={isProcessing}
+                className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50"
+              >
+                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Accept & Import
+              </button>
+              <button onClick={() => setStep(2)} className="border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent">
+                Back
+              </button>
+            </div>
+          </div>
+
+          {/* Summary chips */}
+          <div className="flex gap-4">
+            <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-lg text-center">
+              <span className="text-lg font-black text-emerald-700">{harmResult.unchanged_rows}</span>
+              <span className="block text-[10px] font-bold text-emerald-600 uppercase">Unchanged</span>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 px-4 py-2 rounded-lg text-center">
+              <span className="text-lg font-black text-amber-700">{harmResult.changed_rows}</span>
+              <span className="block text-[10px] font-bold text-amber-600 uppercase">Corrected</span>
+            </div>
+          </div>
+
+          {/* Diff table — only rows with changes */}
+          <div className="bg-card border rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b bg-muted/20 text-sm font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              Corrections Preview
+              <span className="text-muted-foreground font-normal">(only modified rows shown)</span>
+            </div>
+            <div className="divide-y max-h-96 overflow-y-auto">
+              {harmResult.diffs.filter(d => d.has_changes).length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  No corrections needed — data looks clean!
+                </div>
+              ) : (
+                harmResult.diffs.filter(d => d.has_changes).map(diff => (
+                  <div key={diff.row_index} className="px-5 py-3 space-y-2">
+                    <div className="text-xs font-bold text-muted-foreground uppercase">Row {diff.row_index + 1}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {Object.entries(diff.changes).map(([field, change]) => (
+                        <div key={field} className="bg-amber-50 border border-amber-100 rounded-lg p-2 space-y-1">
+                          <div className="text-[10px] font-bold uppercase text-amber-700">{field}</div>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="line-through text-rose-500">{String(change.original) || '(empty)'}</span>
+                            <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="font-medium text-emerald-700">{String(change.corrected)}</span>
+                          </div>
+                          {/* Allow manual override */}
+                          <input
+                            value={editedRows[diff.row_index]?.[field] ?? String(change.corrected)}
+                            onChange={e => {
+                              const updated = [...editedRows]
+                              updated[diff.row_index] = { ...updated[diff.row_index], [field]: e.target.value }
+                              setEditedRows(updated)
+                            }}
+                            className="w-full text-xs border rounded px-2 py-0.5 bg-white focus:ring-1 focus:ring-primary outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && importResult && (
         <div className="bg-card rounded-xl border shadow-lg p-8 space-y-6 animate-in zoom-in-95 duration-300">
           <div className="flex flex-col items-center text-center space-y-4">
             <div className={cn(

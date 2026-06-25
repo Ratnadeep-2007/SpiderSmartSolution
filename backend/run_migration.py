@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
 
 # Load environment
-load_dotenv("E:/Skills/Webstack/Spider_internship/backend/.env")
+load_dotenv(".env")  # Load from cwd (run from backend/)
 db_url = os.getenv("DATABASE_URL")
 
 async def main():
@@ -24,7 +24,7 @@ async def main():
         # Add column if not exists
         await conn.execute(text("""
             ALTER TABLE public.inventory_records 
-            ADD COLUMN IF NOT EXISTS embedding vector(3072);
+            ADD COLUMN IF NOT EXISTS embedding vector(768);
         """))
         print("Schema migration complete!")
 

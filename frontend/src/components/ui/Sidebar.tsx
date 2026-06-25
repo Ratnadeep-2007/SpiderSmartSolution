@@ -8,7 +8,9 @@ import {
   ShieldCheck, 
   Settings,
   Users,
-  Tags
+  Tags,
+  Scale,
+  Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +20,8 @@ const navItems = [
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Import', href: '/import', icon: Upload },
   { name: 'Audit Log', href: '/audit', icon: ClipboardList },
+  { name: 'e-Discovery', href: '/ediscovery', icon: Scale },
+  { name: 'Warehouse', href: '/warehouse', icon: Warehouse },
 ]
 
 const adminItems = [

@@ -24,13 +24,13 @@ The following matrix lists all functional requirements, security mechanisms, com
 | **Auto-Classification Rules** | ML & Logic | Automated categorization and tagging based on description conditions. | **[DONE]** | `classification_service.py`, `AdminClassification.tsx` |
 | **Rule Simulation Preview** | ML & Logic | Live debounced simulation preview showing match count and descriptions before saving. | **[DONE]** | `classification_service.py`, `AdminClassification.tsx` |
 | **Retroactive Rule Applier** | ML & Logic | Manual toggle to apply rules retroactively to existing database records. | **[DONE]** | `classification_service.py` |
-| **Semantic Search & NLQ** | AI Upgrade | Similarity search matching via `pgvector` embeddings. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
+| **Semantic Search & NLQ** | AI Upgrade | Similarity search matching via `pgvector` embeddings. | **[DONE]** | `embedding_service.py`, `search_service.py`, `Records.tsx` |
 | **Dynamic Compliance Advisor** | AI Upgrade | RAG-based legal compliance advisor checking federal/state retention schedules. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
-| **Digital Compliance Officer Agent**| Agentic Workflow| Automated cron agent scanning database, sending JWT sign-off manifests, and deleting records. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
-| **e-Discovery Case Investigator**| Agentic Workflow| Gathers litigation records, tags legal holds, and exports cryptographic ZIP package. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
-| **Data Harmonization Agent** | Agentic Workflow| Cleans bulk uploads, corrects typos, flags schema anomalies, and suggests standard categories. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
-| **Warehouse Layout Mapping** | Structural | Aisle, rack, and shelf structural layout mapping algorithms. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
-| **Pre-Disposition Approvals** | Compliance | Multi-stage manager sign-off workflows before record destruction. | **[REMAINING]** | Tracked in [roadmap.md](file:///E:/Skills/Webstack/Spider_internship/implementation_docs/roadmap.md) |
+| **Digital Compliance Officer Agent**| Agentic Workflow| Automated cron agent scanning database, sending JWT sign-off manifests, and deleting records. | **[DONE]** | `dco_service.py`, `routers/dco.py`, `scheduler.py` |
+| **e-Discovery Case Investigator**| Agentic Workflow| Gathers litigation records, tags legal holds, and exports cryptographic ZIP package. | **[DONE]** | `ediscovery_service.py`, `routers/ediscovery.py`, `EDiscovery.tsx` |
+| **Data Harmonization Agent** | Agentic Workflow| Cleans bulk uploads, corrects typos, flags schema anomalies, and suggests standard categories. | **[DONE]** | `harmonization_service.py`, `routers/harmonization.py`, `Import.tsx` |
+| **Warehouse Layout Mapping** | Structural | Aisle, rack, and shelf structural layout mapping algorithms. | **[DONE]** | `models/warehouse.py`, `warehouse_service.py`, `routers/warehouse.py`, `Warehouse.tsx` |
+| **Pre-Disposition Approvals** | Compliance | Multi-stage manager sign-off workflows before record destruction. | **[DONE]** | `dco_service.py` (HMAC-signed approval tokens + `/dco/approve` callback) |
 
 ---
 

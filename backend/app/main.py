@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
-from .routers import auth, records, master, search, audit, retention, import_records, ediscovery, reports, admin, schedules, copilot
+from .routers import auth, records, master, search, audit, retention, import_records, ediscovery, reports, admin, schedules, copilot, dco, harmonization, warehouse
 from .scheduler import setup_scheduler
 import logging
 
@@ -40,6 +40,9 @@ app.include_router(reports.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(schedules.router, prefix=settings.API_V1_STR)
 app.include_router(copilot.router, prefix=settings.API_V1_STR)
+app.include_router(dco.router, prefix=settings.API_V1_STR)
+app.include_router(harmonization.router, prefix=settings.API_V1_STR)
+app.include_router(warehouse.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

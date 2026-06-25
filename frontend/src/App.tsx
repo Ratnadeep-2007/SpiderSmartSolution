@@ -14,6 +14,8 @@ import Reports from '@/pages/Reports'
 import Import from '@/pages/Import'
 import AdminUsers from '@/pages/AdminUsers'
 import AdminMaster from '@/pages/AdminMaster'
+import EDiscovery from '@/pages/EDiscovery'
+import Warehouse from '@/pages/Warehouse'
 import { Toaster } from 'sonner'
 import AdminClassification from '@/pages/AdminClassification'
 
@@ -33,6 +35,8 @@ function App() {
               <Route path="/audit" element={<Audit />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/import" element={<Import />} />
+              <Route path="/ediscovery" element={<EDiscovery />} />
+              <Route path="/warehouse" element={<Warehouse />} />
               
               {/* Admin routes */}
               <Route path="/admin/users" element={<AdminUsers />} />

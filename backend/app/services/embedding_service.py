@@ -35,16 +35,16 @@ def get_record_text_representation(record: InventoryRecord) -> str:
 
 async def get_embedding(text: str) -> Optional[List[float]]:
     """
-    Calls Gemini embedding-2 model to get text embedding.
+    Calls Gemini text-embedding-004 model to get a 768-dim text embedding.
     """
     gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     if not gemini_key:
         logger.error("GEMINI_API_KEY not configured for embeddings.")
         return None
         
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-embedding-2:embedContent?key={gemini_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={gemini_key}"
     payload = {
-        "model": "models/gemini-embedding-2",
+        "model": "models/text-embedding-004",
         "content": {
             "parts": [{
                 "text": text

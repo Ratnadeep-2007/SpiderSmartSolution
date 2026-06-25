@@ -26,6 +26,31 @@ async def run_classification_sweep():
         except Exception as e:
             logger.error(f"Error during classification sweep background job: {e}")
 
+async def run_embedding_backfill():
+    """Background task to backfill embeddings for records missing them"""
+    async with AsyncSessionLocal() as db:
+        try:
+            from .services.embedding_service import backfill_embeddings
+            count = await backfill_embeddings(db)
+            if count > 0:
+                logger.info(f"Embedding backfill complete. Updated {count} records.")
+        except Exception as e:
+            logger.error(f"Error during embedding backfill job: {e}")
+
+async def run_dco_sweep():
+    """
+    Digital Compliance Officer Agent:
+    Scans for records past retention due date and queues them for disposal approval.
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            from .services.dco_service import run_dco_agent
+            result = await run_dco_agent(db)
+            if result["manifests_generated"] > 0:
+                logger.info(f"DCO Agent: Generated {result['manifests_generated']} disposal manifests for {result['records_flagged']} records.")
+        except Exception as e:
+            logger.error(f"Error during DCO agent sweep: {e}")
+
 def setup_scheduler(app):
     scheduler = AsyncIOScheduler()
     
@@ -43,6 +68,22 @@ def setup_scheduler(app):
         "interval",
         minutes=5,
         id="classification_sweep"
+    )
+
+    # Embedding backfill: Run every 30 minutes to catch new/updated records
+    scheduler.add_job(
+        run_embedding_backfill,
+        "interval",
+        minutes=30,
+        id="embedding_backfill"
+    )
+
+    # DCO Agent: Run every night at 3:00 AM
+    scheduler.add_job(
+        run_dco_sweep,
+        CronTrigger(hour=3, minute=0),
+        id="dco_agent_sweep",
+        replace_existing=True
     )
     
     scheduler.start()

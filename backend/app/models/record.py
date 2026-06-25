@@ -49,7 +49,7 @@ class InventoryRecord(Base):
     custom_fields = Column(JSON, default={})
     
     # Vector Embeddings for Semantic Search
-    embedding = Column(Vector(3072), nullable=True)
+    embedding = Column(Vector(768), nullable=True)
     
     # Metadata
     created_by = Column(UUID(as_uuid=True))
