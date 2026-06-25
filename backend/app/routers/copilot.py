@@ -25,6 +25,17 @@ from ..models.audit_log import AuditLog
 logger = logging.getLogger("app.routers.copilot")
 router = APIRouter(prefix="/copilot", tags=["copilot"])
 
+
+def clean_response(text: str | None) -> str:
+    """
+    Removes markdown asterisks from AI response text so the UI shows plain text.
+    Some providers (e.g. Gemini) use * or ** for bold/italic, which looks noisy
+    in the chat interface.
+    """
+    if not text:
+        return ""
+    return text.replace("*", "").strip()
+
 # Helper functions for AI Copilot Read Tools
 async def search_records_tool(db: AsyncSession, query: str, limit: int = 5) -> List[Dict[str, Any]]:
     stmt = (
@@ -536,7 +547,8 @@ async def chat_with_copilot(
         "=== OUTPUT STYLE RULES (CRITICAL) ===\n"
         "- Be helpful, clear, and comprehensive. Provide detailed step-by-step guidance when explaining features.\n"
         "- Avoid unnecessary filler, but ensure you give enough detail so the user knows exactly what to do.\n"
-        "- Use formatting (like numbered lists, bold text, and bullet points) to make guides easy to read.\n"
+        "- Use numbered lists and bullet points to make guides easy to read.\n"
+        "- NEVER use asterisks (*) or markdown syntax for bold or italic text. Use plain text only.\n"
         "- If you are outputting a tool JSON block (read_tool or tool_call), output ONLY that raw JSON and nothing else. No conversational text."
     )
     
@@ -688,7 +700,7 @@ async def chat_with_copilot(
                 actions.append({"label": "View Records", "route": "/records"})
         
         logger.info(f"Copilot Request Completed in {time.time() - start_time:.2f}s")
-        return CopilotChatResponse(response=ai_text, actions_suggested=actions, pending_action=pending_action)
+        return CopilotChatResponse(response=clean_response(ai_text), actions_suggested=actions, pending_action=pending_action)
 
     # 4. Smart Semantic Fallback (Offline Mode)
     fallback_start = time.time()
@@ -762,7 +774,7 @@ async def chat_with_copilot(
         )
         
     logger.info(f"Fallback complete. Total duration: {time.time() - start_time:.4f}s")
-    return CopilotChatResponse(response=response_text, actions_suggested=actions)
+    return CopilotChatResponse(response=clean_response(response_text), actions_suggested=actions)
 
 @router.post("/execute", response_model=Dict[str, Any])
 async def execute_copilot_action(
