@@ -4,6 +4,16 @@ This guide contains the comprehensive, step-by-step instructions to deploy your 
 
 ---
 
+## 📈 Deployment Status Tracker
+* [x] **Prerequisites**: Done.
+* [x] **Step 1: Save & Commit Local Configurations**: Completed.
+* [x] **Step 2: Deploy Frontend on Vercel**: Completed! Vercel project created and deployed.
+* [ ] **Step 3: Point Domain in Tasjeel.ae (DNS Settings)**: **In Progress** 🚀 (Currently configuring records in Tasjeel).
+* [ ] **Step 4: Bind Custom Domain in Vercel**: Pending DNS propagation.
+* [ ] **Step 5: Verify Backend & Environment Variables (cPanel)**: Pending final test.
+
+---
+
 ## 📋 Table of Contents
 1. [Prerequisites Checklist](#1-prerequisites-checklist)
 2. [Step 1: Save & Commit Local Configurations](#2-step-1-save--commit-local-configurations)
