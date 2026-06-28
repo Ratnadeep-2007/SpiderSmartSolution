@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import VersionHistory from '@/components/versions/VersionHistory'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface Record {
   id: string
@@ -42,6 +43,7 @@ import { toast } from 'sonner'
 import RecordForm from '@/components/records/RecordForm'
 
 export default function RecordDetail() {
+  const { translate } = useLanguageStore()
   const { id } = useParams()
   const navigate = useNavigate()
   const [record, setRecord] = useState<Record | null>(null)
@@ -109,9 +111,21 @@ export default function RecordDetail() {
   const handleUpdateRecord = async (data: any) => {
     if (!record) return
     try {
-      await api.put(`/records/${id}`, data, {
+      const { bin_id, location_mode, old_bin_id, ...recordData } = data
+      await api.put(`/records/${id}`, recordData, {
         headers: { 'If-Match': record.updated_at }
       })
+
+      // Update spatial bin mapping if changed
+      if (bin_id !== old_bin_id) {
+        if (old_bin_id) {
+          await api.delete(`/warehouse/bins/${old_bin_id}/assign`)
+        }
+        if (location_mode !== 'custom' && bin_id) {
+          await api.post(`/warehouse/bins/${bin_id}/assign`, { record_id: id })
+        }
+      }
+
       toast.success('Record updated successfully')
       setIsEditModalOpen(false)
       fetchRecord()
@@ -132,9 +146,9 @@ export default function RecordDetail() {
 
   if (!record) return (
     <div className="p-8 text-center">
-      <h2 className="text-2xl font-bold">Record not found</h2>
+      <h2 className="text-2xl font-bold">{translate('Record not found')}</h2>
       <button onClick={() => navigate('/records')} className="mt-4 text-primary hover:underline flex items-center justify-center mx-auto">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Records
+        <ArrowLeft className="mr-2 h-4 w-4" /> {translate('Back to Records')}
       </button>
     </div>
   )
@@ -149,7 +163,7 @@ export default function RecordDetail() {
         className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Inventory
+        {translate('Back to Inventory')}
       </button>
 
       {/* Compliance Banners */}
@@ -159,8 +173,8 @@ export default function RecordDetail() {
             <Lock className="h-5 w-5 text-amber-700" />
           </div>
           <div>
-            <h3 className="font-bold text-sm uppercase tracking-tight">Active Legal Hold</h3>
-            <p className="text-xs opacity-90">This record is legally protected. Retention disposition and modification are suspended.</p>
+            <h3 className="font-bold text-sm uppercase tracking-tight">{translate('Active Legal Hold')}</h3>
+            <p className="text-xs opacity-90">{translate('This record is legally protected. Retention disposition and modification are suspended.')}</p>
           </div>
         </div>
       )}
@@ -171,8 +185,8 @@ export default function RecordDetail() {
             <AlertTriangle className="h-5 w-5 text-rose-700" />
           </div>
           <div>
-            <h3 className="font-bold text-sm uppercase tracking-tight">Retention Expired</h3>
-            <p className="text-xs opacity-90">This record has reached its mandatory retention limit and is eligible for final disposition.</p>
+            <h3 className="font-bold text-sm uppercase tracking-tight">{translate('Retention Expired')}</h3>
+            <p className="text-xs opacity-90">{translate('This record has reached its mandatory retention limit and is eligible for final disposition.')}</p>
           </div>
         </div>
       )}
@@ -183,11 +197,11 @@ export default function RecordDetail() {
             <h1 className="text-3xl font-bold tracking-tight">{record.box_barcode}</h1>
             {isDisposed && (
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 border border-slate-200 uppercase tracking-widest">
-                Disposed
+                {translate('Disposed')}
               </span>
             )}
           </div>
-          <p className="text-muted-foreground mt-1">File: {record.file_barcode} • Version {record.version}</p>
+          <p className="text-muted-foreground mt-1">{translate('File:')} {record.file_barcode} • {translate('Version')} {translate(String(record.version))}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -200,7 +214,7 @@ export default function RecordDetail() {
             )}
           >
             {record.legal_hold ? <Unlock className="mr-2 h-4 w-4" /> : <Lock className="mr-2 h-4 w-4" />}
-            {record.legal_hold ? 'Release Hold' : 'Apply Legal Hold'}
+            {record.legal_hold ? translate('Release Hold') : translate('Apply Legal Hold')}
           </button>
           {!isDisposed && (
             <button 
@@ -208,7 +222,7 @@ export default function RecordDetail() {
               className="flex items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
             >
               <Edit className="mr-2 h-4 w-4" />
-              Edit Record
+              {translate('Edit Record')}
             </button>
           )}
         </div>
@@ -239,7 +253,7 @@ export default function RecordDetail() {
         >
           <div className="flex items-center">
             <Info className="mr-2 h-4 w-4" />
-            General Information
+            {translate('General Information')}
           </div>
         </button>
         <button 
@@ -251,7 +265,7 @@ export default function RecordDetail() {
         >
           <div className="flex items-center">
             <History className="mr-2 h-4 w-4" />
-            Version History
+            {translate('Version History')}
           </div>
         </button>
       </div>
@@ -261,46 +275,46 @@ export default function RecordDetail() {
           {activeTab === 'details' ? (
             <div className="bg-card rounded-xl border shadow-sm p-6 space-y-6">
               <div>
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Description</h3>
-                <p className="text-lg leading-relaxed">{record.description}</p>
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">{translate('Description')}</h3>
+                <p className="text-lg leading-relaxed">{translate(record.description)}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Entity Type</p>
-                  <p className="font-medium text-sm">{record.entity_type || 'N/A'}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Entity Type')}</p>
+                  <p className="font-medium text-sm">{translate(record.entity_type) || translate('N/A')}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Entity</p>
-                  <p className="font-medium flex items-center text-sm"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" /> {record.entity}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Entity')}</p>
+                  <p className="font-medium flex items-center text-sm"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" /> {translate(record.entity)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Department</p>
-                  <p className="font-medium text-sm">{record.department}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Department')}</p>
+                  <p className="font-medium text-sm">{translate(record.department)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Category</p>
-                  <p className="font-medium text-sm text-primary">{record.category?.name || 'Uncategorized'}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Category')}</p>
+                  <p className="font-medium text-sm text-primary">{record.category?.name ? translate(record.category.name) : translate('Uncategorized')}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Location</p>
-                  <p className="font-medium text-sm">{record.location}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Location')}</p>
+                  <p className="font-medium text-sm">{translate(record.location)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Record Date</p>
-                  <p className="font-medium flex items-center text-sm"><Calendar className="mr-2 h-4 w-4 text-muted-foreground" /> {record.record_date}</p>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">{translate('Record Date')}</p>
+                  <p className="font-medium flex items-center text-sm"><Calendar className="mr-2 h-4 w-4 text-muted-foreground" /> {translate(record.record_date)}</p>
                 </div>
               </div>
 
               <div className="pt-4 border-t">
-                <p className="text-xs text-muted-foreground mb-3 uppercase font-bold tracking-tighter">Classification Tags</p>
+                <p className="text-xs text-muted-foreground mb-3 uppercase font-bold tracking-tighter">{translate('Classification Tags')}</p>
                 <div className="flex flex-wrap gap-2">
                   {record.tags.length > 0 ? record.tags.map(tag => (
                     <span key={tag} className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium border shadow-sm">
                       <TagIcon className="mr-1.5 h-3 w-3" />
-                      {tag}
+                      {translate(tag)}
                     </span>
-                  )) : <span className="text-sm italic text-muted-foreground">No tags applied</span>}
+                  )) : <span className="text-sm italic text-muted-foreground">{translate('No tags applied')}</span>}
                 </div>
               </div>
             </div>
@@ -319,26 +333,26 @@ export default function RecordDetail() {
         {/* Right Column: Status & Timeline */}
         <div className="space-y-6">
           <div className="bg-card rounded-xl border shadow-sm p-6">
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Compliance Status</h3>
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">{translate('Compliance Status')}</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Lifecycle State</span>
+                <span className="text-xs font-medium">{translate('Lifecycle State')}</span>
                 <span className={cn(
                   "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
                   record.disposition_status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
                   record.disposition_status === 'DUE' ? 'bg-amber-100 text-amber-700' :
                   'bg-slate-100 text-slate-700'
                 )}>
-                  {record.disposition_status}
+                  {translate(record.disposition_status)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Record Age</span>
-                <span className="text-sm font-mono">{new Date().getFullYear() - new Date(record.record_date).getFullYear()} years</span>
+                <span className="text-xs font-medium">{translate('Record Age')}</span>
+                <span className="text-sm font-mono">{translate((new Date().getFullYear() - new Date(record.record_date).getFullYear()).toString())} {translate('years')}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Retention Due</span>
-                <span className="text-xs font-mono">{record.retention_due_date || 'N/A'}</span>
+                <span className="text-xs font-medium">{translate('Retention Due')}</span>
+                <span className="text-xs font-mono">{translate(record.retention_due_date) || translate('N/A')}</span>
               </div>
               
               {!isDisposed && (
@@ -354,13 +368,13 @@ export default function RecordDetail() {
                     )}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Final Disposition
+                    {translate('Final Disposition')}
                   </button>
                   {!isDue && !record.legal_hold && (
-                    <p className="mt-2 text-[10px] text-center text-muted-foreground italic">Eligible for disposal on {record.retention_due_date}</p>
+                    <p className="mt-2 text-[10px] text-center text-muted-foreground italic">{translate('Eligible for disposal on')} {translate(record.retention_due_date)}</p>
                   )}
                   {record.legal_hold && (
-                    <p className="mt-2 text-[10px] text-center text-amber-600 font-medium italic">Disposal blocked by Legal Hold</p>
+                    <p className="mt-2 text-[10px] text-center text-amber-600 font-medium italic">{translate('Disposal blocked by Legal Hold')}</p>
                   )}
                 </div>
               )}
@@ -368,11 +382,11 @@ export default function RecordDetail() {
           </div>
 
           <div className="bg-muted/30 rounded-xl border p-6">
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Metadata</h3>
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">{translate('Metadata')}</h3>
             <div className="text-[10px] space-y-2 text-muted-foreground font-mono">
-              <p>ID: {record.id}</p>
-              <p>Created: {new Date(record.created_at).toLocaleString()}</p>
-              <p>Updated: {new Date(record.updated_at).toLocaleString()}</p>
+              <p>{translate('ID:')} {record.id}</p>
+              <p>{translate('Created:')} {new Date(record.created_at).toLocaleString()}</p>
+              <p>{translate('Updated:')} {new Date(record.updated_at).toLocaleString()}</p>
             </div>
           </div>
         </div>

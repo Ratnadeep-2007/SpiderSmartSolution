@@ -2,6 +2,11 @@
 -- Target: Supabase / PostgreSQL 15
 
 -- 1. CLEANUP (Drop existing tables to ensure a clean start)
+DROP TABLE IF EXISTS public.warehouse_bins CASCADE;
+DROP TABLE IF EXISTS public.warehouse_shelves CASCADE;
+DROP TABLE IF EXISTS public.warehouse_aisles CASCADE;
+DROP TABLE IF EXISTS public.warehouse_zones CASCADE;
+DROP TABLE IF EXISTS public.warehouses CASCADE;
 DROP TABLE IF EXISTS public.auto_classification_rules CASCADE;
 DROP TABLE IF EXISTS public.retention_policies CASCADE;
 DROP TABLE IF EXISTS public.saved_searches CASCADE;
@@ -206,6 +211,48 @@ CREATE TABLE public.tags (
     color TEXT,
     description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Warehouses Table
+CREATE TABLE public.warehouses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
+    address TEXT,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Warehouse Zones Table
+CREATE TABLE public.warehouse_zones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    warehouse_id UUID REFERENCES public.warehouses(id) ON DELETE CASCADE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT
+);
+
+-- Warehouse Aisles Table
+CREATE TABLE public.warehouse_aisles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    zone_id UUID REFERENCES public.warehouse_zones(id) ON DELETE CASCADE NOT NULL,
+    label TEXT NOT NULL
+);
+
+-- Warehouse Shelves Table
+CREATE TABLE public.warehouse_shelves (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aisle_id UUID REFERENCES public.warehouse_aisles(id) ON DELETE CASCADE NOT NULL,
+    level INTEGER NOT NULL,
+    max_capacity INTEGER DEFAULT 100
+);
+
+-- Warehouse Bins Table
+CREATE TABLE public.warehouse_bins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shelf_id UUID REFERENCES public.warehouse_shelves(id) ON DELETE CASCADE NOT NULL,
+    bin_code TEXT UNIQUE NOT NULL,
+    is_occupied BOOLEAN DEFAULT FALSE,
+    record_id UUID REFERENCES public.inventory_records(id) ON DELETE SET NULL,
+    pos_x FLOAT,
+    pos_y FLOAT
 );
 
 -- 4. SEEDING

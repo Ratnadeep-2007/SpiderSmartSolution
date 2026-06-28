@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface User {
   id: string
@@ -34,6 +35,7 @@ interface User {
 }
 
 export default function AdminUsers() {
+  const { translate } = useLanguageStore()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -207,8 +209,8 @@ export default function AdminUsers() {
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Manage system access, roles, and account status.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('User Management')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{translate('Manage system access, roles, and account status.')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -216,14 +218,14 @@ export default function AdminUsers() {
             className="flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-muted/80 transition-all border"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {translate('Export CSV')}
           </button>
           <button 
             onClick={() => setShowInviteModal(true)}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all"
           >
             <UserPlus className="h-4 w-4" />
-            Invite User
+            {translate('Invite User')}
           </button>
         </div>
       </div>
@@ -238,11 +240,11 @@ export default function AdminUsers() {
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-muted/50 border-b font-bold text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-4">User</th>
-                  <th className="px-6 py-4">Role</th>
-                  <th className="px-6 py-4 text-center">Status</th>
-                  <th className="px-6 py-4">Joined</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4">{translate('User')}</th>
+                  <th className="px-6 py-4">{translate('Role')}</th>
+                  <th className="px-6 py-4 text-center">{translate('Status')}</th>
+                  <th className="px-6 py-4">{translate('Joined')}</th>
+                  <th className="px-6 py-4 text-right">{translate('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -256,7 +258,7 @@ export default function AdminUsers() {
                         <div>
                           <div className="font-semibold">{user.full_name || 'System User'}</div>
                           <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Users className="h-3 w-3" /> ID: {user.user_id || 'Not Set'}
+                            <Users className="h-3 w-3" /> ID: {user.user_id || translate('Not Set')}
                           </div>
                           <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <Mail className="h-3 w-3" /> {user.email}
@@ -270,10 +272,10 @@ export default function AdminUsers() {
                         onChange={(e) => handleUpdateRole(user, e.target.value)}
                         className="bg-transparent border-none text-xs font-bold uppercase tracking-wider focus:ring-0 cursor-pointer hover:text-primary"
                       >
-                        <option value="SYSTEM_ADMIN">Administrator</option>
-                        <option value="RECORDS_MANAGER">Records Manager</option>
-                        <option value="KNOWLEDGE_WORKER">Knowledge Worker</option>
-                        <option value="EXTERNAL_GUEST">External Guest</option>
+                        <option value="SYSTEM_ADMIN">{translate('Administrator')}</option>
+                        <option value="RECORDS_MANAGER">{translate('Records Manager')}</option>
+                        <option value="KNOWLEDGE_WORKER">{translate('Knowledge Worker')}</option>
+                        <option value="EXTERNAL_GUEST">{translate('External Guest')}</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -283,7 +285,7 @@ export default function AdminUsers() {
                           : 'bg-rose-50 text-rose-700 border-rose-100'
                       }`}>
                         {user.is_active ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-                        {user.is_active ? 'Active' : 'Disabled'}
+                        {user.is_active ? translate('Active') : translate('Disabled')}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
@@ -314,7 +316,7 @@ export default function AdminUsers() {
                               className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 transition-colors"
                             >
                               <Edit2 className="h-4 w-4 text-primary" />
-                              Edit User Details
+                              {translate('Edit User Details')}
                             </button>
                             <button
                               onClick={() => {
@@ -324,7 +326,7 @@ export default function AdminUsers() {
                               className={`w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 transition-colors ${user.is_active ? 'text-rose-600' : 'text-emerald-600'}`}
                             >
                               {user.is_active ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                              {user.is_active ? 'Disable Account' : 'Enable Account'}
+                              {user.is_active ? translate('Disable Account') : translate('Enable Account')}
                             </button>
                             <div className="h-px bg-muted my-1" />
                             <button
@@ -332,7 +334,7 @@ export default function AdminUsers() {
                               className="w-full px-4 py-2 text-left text-sm text-muted-foreground opacity-50 flex items-center gap-2 cursor-not-allowed"
                             >
                               <ShieldAlert className="h-4 w-4" />
-                              Reset Security Keys
+                              {translate('Reset Security Keys')}
                             </button>
                           </div>
                         )}
@@ -353,7 +355,7 @@ export default function AdminUsers() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 {editingUser ? <Users className="h-5 w-5 text-primary" /> : <UserPlus className="h-5 w-5 text-primary" />}
-                {editingUser ? 'Edit User' : 'Invite New User'}
+                {editingUser ? translate('Edit User') : translate('Invite New User')}
               </h3>
               <button onClick={closeModal} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
@@ -362,7 +364,7 @@ export default function AdminUsers() {
             
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">User ID (Employee ID / Username)</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('User ID (Employee ID / Username)')}</label>
                 <div className="relative">
                   <Users className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input 
@@ -377,7 +379,7 @@ export default function AdminUsers() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Email Address</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Email Address')}</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input 
@@ -392,7 +394,7 @@ export default function AdminUsers() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">{editingUser ? 'Change Password (Optional)' : 'Temporary Password'}</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{editingUser ? translate('Change Password (Optional)') : translate('Temporary Password')}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input 
@@ -401,7 +403,7 @@ export default function AdminUsers() {
                     value={invitePassword}
                     onChange={(e) => setInvitePassword(e.target.value)}
                     className="w-full rounded-lg border bg-background pl-10 pr-10 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder={editingUser ? "Leave blank to keep current" : "Min. 8 characters"}
+                    placeholder={editingUser ? translate('Leave blank to keep current') : translate('Min. 8 characters')}
                   />
                   <button 
                     type="button"
@@ -414,24 +416,24 @@ export default function AdminUsers() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">System Role</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('System Role')}</label>
                 <select 
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
                   className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="KNOWLEDGE_WORKER">Knowledge Worker</option>
-                  <option value="RECORDS_MANAGER">Records Manager</option>
-                  <option value="SYSTEM_ADMIN">Administrator</option>
-                  <option value="AUDITOR">Auditor</option>
-                  <option value="EXTERNAL_GUEST">External Guest</option>
+                  <option value="KNOWLEDGE_WORKER">{translate('Knowledge Worker')}</option>
+                  <option value="RECORDS_MANAGER">{translate('Records Manager')}</option>
+                  <option value="SYSTEM_ADMIN">{translate('Administrator')}</option>
+                  <option value="AUDITOR">{translate('Auditor')}</option>
+                  <option value="EXTERNAL_GUEST">{translate('External Guest')}</option>
                 </select>
               </div>
 
               {inviteRole === 'EXTERNAL_GUEST' && (
                 <div className="p-4 bg-muted/30 rounded-xl space-y-4 animate-in slide-in-from-top-2 duration-200">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-primary">Guest Expiration Date</label>
+                    <label className="text-xs font-bold uppercase text-primary">{translate('Guest Expiration Date')}</label>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                       <input 
@@ -444,16 +446,16 @@ export default function AdminUsers() {
                   </div>
 
                   <div className="space-y-3">
-                    <label className="text-xs font-bold uppercase text-primary">Scoped Data Access (Optional)</label>
+                    <label className="text-xs font-bold uppercase text-primary">{translate('Scoped Data Access (Optional)')}</label>
                     
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground">Restrict to Entity</label>
+                      <label className="text-[10px] font-bold text-muted-foreground">{translate('Restrict to Entity')}</label>
                       <select 
                         value={inviteScopedEntity}
                         onChange={(e) => setInviteScopedEntity(e.target.value)}
                         className="w-full rounded-lg border bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/20"
                       >
-                        <option value="">All Entities</option>
+                        <option value="">{translate('All Entities')}</option>
                         {entities.map(e => (
                           <option key={e.id} value={e.id}>{e.name}</option>
                         ))}
@@ -461,13 +463,13 @@ export default function AdminUsers() {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground">Restrict to Department</label>
+                      <label className="text-[10px] font-bold text-muted-foreground">{translate('Restrict to Department')}</label>
                       <select 
                         value={inviteScopedDept}
                         onChange={(e) => setInviteScopedDept(e.target.value)}
                         className="w-full rounded-lg border bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/20"
                       >
-                        <option value="">All Departments</option>
+                        <option value="">{translate('All Departments')}</option>
                         {departments.map(d => (
                           <option key={d.id} value={d.id}>{d.name} ({d.entity_code})</option>
                         ))}
@@ -483,14 +485,14 @@ export default function AdminUsers() {
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted"
                 >
-                  Cancel
+                  {translate('Cancel')}
                 </button>
                 <button 
                   type="submit"
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingUser ? "Update User" : "Send Invite")}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingUser ? translate('Update User') : translate('Send Invite'))}
                 </button>
               </div>
             </form>

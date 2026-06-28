@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Loader2,
   Sparkles,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
@@ -41,13 +42,25 @@ export default function Warehouse() {
   const [recommendation, setRecommendation] = useState<{ recommendation: Recommendation | null; reason: string } | null>(null)
   const [isRecommending, setIsRecommending] = useState(false)
 
+  // Layout Builder State
+  const [modalType, setModalType] = useState<'zone' | 'aisle' | 'shelf' | 'bin' | null>(null)
+  const [parentId, setParentId] = useState<string>('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const [zoneForm, setZoneForm] = useState({ name: '', description: '' })
+  const [aisleForm, setAisleForm] = useState({ label: '' })
+  const [shelfForm, setShelfForm] = useState({ level: '', maxCapacity: 100 })
+  const [binForm, setBinForm] = useState({ binCode: '', posX: '', posY: '' })
+
   const fetchWarehouses = async () => {
     try {
       const res = await api.get('/warehouse/')
       setWarehouses(res.data)
-      if (res.data.length > 0 && !selected) {
-        setSelected(res.data[0])
-        fetchStats(res.data[0].id)
+      if (res.data.length > 0) {
+        const currentSelectedId = selected?.id || res.data[0].id;
+        const updatedSelected = res.data.find((w: WarehouseData) => w.id === currentSelectedId) || res.data[0];
+        setSelected(updatedSelected);
+        fetchStats(updatedSelected.id);
       }
     } catch {
       toast.error('Failed to load warehouses')
@@ -97,6 +110,82 @@ export default function Warehouse() {
       toast.error('Could not get recommendation')
     } finally {
       setIsRecommending(false)
+    }
+  }
+
+  const handleAddZone = async () => {
+    if (!zoneForm.name.trim() || !selected) return
+    setIsSubmitting(true)
+    try {
+      await api.post(`/warehouse/${selected.id}/zones`, {
+        name: zoneForm.name,
+        description: zoneForm.description || null
+      })
+      toast.success('Zone created successfully')
+      setModalType(null)
+      setZoneForm({ name: '', description: '' })
+      await fetchWarehouses()
+    } catch {
+      toast.error('Failed to create zone')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddAisle = async () => {
+    if (!aisleForm.label.trim() || !parentId) return
+    setIsSubmitting(true)
+    try {
+      await api.post(`/warehouse/zones/${parentId}/aisles`, {
+        label: aisleForm.label
+      })
+      toast.success('Aisle created successfully')
+      setModalType(null)
+      setAisleForm({ label: '' })
+      await fetchWarehouses()
+    } catch {
+      toast.error('Failed to create aisle')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddShelf = async () => {
+    if (!shelfForm.level || !parentId) return
+    setIsSubmitting(true)
+    try {
+      await api.post(`/warehouse/aisles/${parentId}/shelves`, {
+        level: parseInt(shelfForm.level),
+        max_capacity: shelfForm.maxCapacity
+      })
+      toast.success('Shelf created successfully')
+      setModalType(null)
+      setShelfForm({ level: '', maxCapacity: 100 })
+      await fetchWarehouses()
+    } catch {
+      toast.error('Failed to create shelf')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddBin = async () => {
+    if (!binForm.binCode.trim() || !parentId) return
+    setIsSubmitting(true)
+    try {
+      await api.post(`/warehouse/shelves/${parentId}/bins`, {
+        bin_code: binForm.binCode,
+        pos_x: binForm.posX ? parseFloat(binForm.posX) : null,
+        pos_y: binForm.posY ? parseFloat(binForm.posY) : null
+      })
+      toast.success('Bin created successfully')
+      setModalType(null)
+      setBinForm({ binCode: '', posX: '', posY: '' })
+      await fetchWarehouses()
+    } catch {
+      toast.error('Failed to create bin')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -271,62 +360,112 @@ export default function Warehouse() {
 
               {/* Layout Tree */}
               <div className="bg-card border rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b bg-muted/20 font-semibold text-sm">
-                  Layout: {selected.name}
+                <div className="px-5 py-4 border-b bg-muted/20 font-semibold text-sm flex items-center justify-between">
+                  <span>Layout: {selected.name}</span>
+                  <button
+                    onClick={() => {
+                      setParentId('');
+                      setModalType('zone');
+                    }}
+                    className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded hover:bg-primary/95 transition-all shadow-sm font-medium"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Zone
+                  </button>
                 </div>
                 <div className="divide-y">
                   {selected.zones.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground text-sm">
-                      No zones configured. Use the API or admin tools to add zones, aisles, shelves, and bins.
+                      No zones configured. Click "Add Zone" to begin creating your layout.
                     </div>
                   ) : (
                     selected.zones.map(zone => (
                       <div key={zone.id}>
-                        <button
+                        <div
                           onClick={() => toggleZone(zone.id)}
-                          className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors"
+                          className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors group cursor-pointer"
                         >
-                          {expandedZones.has(zone.id)
-                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          }
-                          <Layers className="h-4 w-4 text-primary" />
-                          <span className="font-semibold text-sm">{zone.name}</span>
-                          {zone.description && (
-                            <span className="text-xs text-muted-foreground">— {zone.description}</span>
-                          )}
-                          <span className="ml-auto text-xs text-muted-foreground">{zone.aisles.length} aisles</span>
-                        </button>
+                          <div className="flex items-center gap-3">
+                            {expandedZones.has(zone.id)
+                              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            }
+                            <Layers className="h-4 w-4 text-primary" />
+                            <span className="font-semibold text-sm">{zone.name}</span>
+                            {zone.description && (
+                              <span className="text-xs text-muted-foreground">— {zone.description}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                            <span className="text-xs text-muted-foreground">{zone.aisles.length} aisles</span>
+                            <button
+                              onClick={() => {
+                                setParentId(zone.id);
+                                setModalType('aisle');
+                              }}
+                              className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-all font-bold uppercase"
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                              Add Aisle
+                            </button>
+                          </div>
+                        </div>
 
                         {expandedZones.has(zone.id) && (
                           <div className="pl-8 border-t bg-muted/5">
                             {zone.aisles.map(aisle => (
                               <div key={aisle.id} className="border-b last:border-0">
-                                <button
+                                <div
                                   onClick={() => toggleAisle(aisle.id)}
-                                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+                                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors group cursor-pointer"
                                 >
-                                  {expandedAisles.has(aisle.id)
-                                    ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                    : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                  }
-                                  <MapPin className="h-3.5 w-3.5 text-amber-500" />
-                                  <span className="text-sm font-medium">Aisle {aisle.label}</span>
-                                  <span className="ml-auto text-xs text-muted-foreground">
-                                    {aisle.shelves.length} shelves
-                                  </span>
-                                </button>
+                                  <div className="flex items-center gap-3">
+                                    {expandedAisles.has(aisle.id)
+                                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                    }
+                                    <MapPin className="h-3.5 w-3.5 text-amber-500" />
+                                    <span className="text-sm font-medium">Aisle {aisle.label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                                    <span className="text-xs text-muted-foreground">
+                                      {aisle.shelves.length} shelves
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setParentId(aisle.id);
+                                        setModalType('shelf');
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20 hover:bg-amber-500/20 transition-all font-bold uppercase"
+                                    >
+                                      <Plus className="h-2.5 w-2.5" />
+                                      Add Shelf
+                                    </button>
+                                  </div>
+                                </div>
 
                                 {expandedAisles.has(aisle.id) && (
                                   <div className="pl-8 pb-2">
                                     {aisle.shelves.map(shelf => {
                                       const occupied = shelf.bins.filter(b => b.is_occupied).length
                                       return (
-                                        <div key={shelf.id} className="py-2">
-                                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                                            <Box className="h-3 w-3" />
-                                            <span className="font-medium">Shelf Level {shelf.level}</span>
-                                            <span>— {occupied}/{shelf.bins.length} occupied</span>
+                                        <div key={shelf.id} className="py-2 border-b last:border-0 group/shelf">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                              <Box className="h-3 w-3" />
+                                              <span className="font-medium">Shelf Level {shelf.level}</span>
+                                              <span>— {occupied}/{shelf.bins.length} occupied</span>
+                                            </div>
+                                            <button
+                                              onClick={() => {
+                                                setParentId(shelf.id);
+                                                setModalType('bin');
+                                              }}
+                                              className="opacity-0 group-hover/shelf:opacity-100 flex items-center gap-1 text-[9px] bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-500/20 hover:bg-emerald-500/20 transition-all font-bold uppercase"
+                                            >
+                                              <Plus className="h-2.5 w-2.5" />
+                                              Add Bin
+                                            </button>
                                           </div>
                                           <div className="flex flex-wrap gap-1.5">
                                             {shelf.bins.map(bin => (
@@ -363,6 +502,174 @@ export default function Warehouse() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Configuration Modal */}
+      {modalType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-card border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b bg-muted/20 flex items-center justify-between">
+              <h3 className="font-bold text-sm uppercase tracking-wider">
+                {modalType === 'zone' && 'Add Spatial Zone'}
+                {modalType === 'aisle' && 'Add Storage Aisle'}
+                {modalType === 'shelf' && 'Add Shelf Level'}
+                {modalType === 'bin' && 'Add Warehouse Bin'}
+              </h3>
+              <button 
+                onClick={() => setModalType(null)} 
+                className="text-muted-foreground hover:text-foreground rounded-full p-1 hover:bg-muted transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {modalType === 'zone' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Zone Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Zone A, High Security Vault"
+                      value={zoneForm.name}
+                      onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Description</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Temperature controlled, financial records only"
+                      value={zoneForm.description}
+                      onChange={e => setZoneForm({ ...zoneForm, description: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleAddZone}
+                      disabled={isSubmitting || !zoneForm.name.trim()}
+                      className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isSubmitting ? 'Creating...' : 'Create Zone'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {modalType === 'aisle' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Aisle Label *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. A, B, 01, 02"
+                      value={aisleForm.label}
+                      onChange={e => setAisleForm({ label: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleAddAisle}
+                      disabled={isSubmitting || !aisleForm.label.trim()}
+                      className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isSubmitting ? 'Creating...' : 'Create Aisle'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {modalType === 'shelf' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Shelf Level *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 1 (Ground), 2, 3"
+                      value={shelfForm.level}
+                      onChange={e => setShelfForm({ ...shelfForm, level: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Max Box Capacity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={shelfForm.maxCapacity}
+                      onChange={e => setShelfForm({ ...shelfForm, maxCapacity: parseInt(e.target.value) || 100 })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleAddShelf}
+                      disabled={isSubmitting || !shelfForm.level}
+                      className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isSubmitting ? 'Creating...' : 'Create Shelf'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {modalType === 'bin' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Bin Code *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. A-1-1, BIN-042"
+                      value={binForm.binCode}
+                      onChange={e => setBinForm({ ...binForm, binCode: e.target.value })}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Spatial X Coord</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 1.5 (meters)"
+                        value={binForm.posX}
+                        onChange={e => setBinForm({ ...binForm, posX: e.target.value })}
+                        className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Spatial Y Coord</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 3.2 (meters)"
+                        value={binForm.posY}
+                        onChange={e => setBinForm({ ...binForm, posY: e.target.value })}
+                        className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    X and Y coordinates represent physical distances from the entry point. The spatial routing engine uses these to compute retrieval travel optimization.
+                  </p>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleAddBin}
+                      disabled={isSubmitting || !binForm.binCode.trim()}
+                      className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isSubmitting ? 'Creating...' : 'Create Bin'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Save, X, Loader2 } from 'lucide-react'
+import { Save, X, Loader2, Sparkles, MapPin, Layers, Check } from 'lucide-react'
 import api from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 // Core Required Fields Schema
 const baseRecordSchema = z.object({
@@ -95,7 +96,7 @@ interface User {
 
 interface RecordFormProps {
   initialData?: Partial<RecordFormValues>
-  onSubmit: (data: RecordFormValues) => void
+  onSubmit: (data: any) => void
   onCancel: () => void
   title: string
 }
@@ -111,6 +112,20 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(initialData?.record_type_id || null)
   const [tagInput, setTagInput] = useState('')
   const isFirstRender = useRef(true)
+
+  // Warehouse Spatial Layout States
+  const [warehouses, setWarehouses] = useState<any[]>([])
+  const [locationMode, setLocationMode] = useState<'ai' | 'manual' | 'custom'>('ai')
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('')
+  const [selectedZoneId, setSelectedZoneId] = useState<string>('')
+  const [selectedAisleId, setSelectedAisleId] = useState<string>('')
+  const [selectedShelfId, setSelectedShelfId] = useState<string>('')
+  const [selectedBinId, setSelectedBinId] = useState<string>('')
+  const [oldBinId, setOldBinId] = useState<string>('')
+
+  // AI Recommendation State
+  const [aiRecommendation, setAiRecommendation] = useState<any>(null)
+  const [isRecommending, setIsRecommending] = useState(false)
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -281,11 +296,196 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
     fetchDepts()
   }, [watchedEntityId, entities, setValue])
 
+  // Fetch warehouses layout and find matching bin for initialData
+  useEffect(() => {
+    const fetchWarehouseLayouts = async () => {
+      try {
+        const res = await api.get('/warehouse/')
+        setWarehouses(res.data)
+        
+        const initialDataAny = initialData as any
+        if (initialDataAny?.id) {
+          let foundBin: any = null
+          let foundShelf: any = null
+          let foundAisle: any = null
+          let foundZone: any = null
+          let foundWarehouse: any = null
+
+          for (const wh of res.data) {
+            for (const zone of wh.zones) {
+              for (const aisle of zone.aisles) {
+                for (const shelf of aisle.shelves) {
+                  for (const bin of shelf.bins) {
+                    if (bin.record_id === initialDataAny.id) {
+                      foundBin = bin
+                      foundShelf = shelf
+                      foundAisle = aisle
+                      foundZone = zone
+                      foundWarehouse = wh
+                      break
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (foundBin) {
+            setLocationMode('manual')
+            setSelectedWarehouseId(foundWarehouse.id)
+            setSelectedZoneId(foundZone.id)
+            setSelectedAisleId(foundAisle.id)
+            setSelectedShelfId(foundShelf.id)
+            setSelectedBinId(foundBin.id)
+            setOldBinId(foundBin.id)
+          } else if (initialData?.location) {
+            setLocationMode('custom')
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch warehouse layouts:', err)
+      }
+    }
+    fetchWarehouseLayouts()
+  }, [initialData])
+
+  // Computed layout structures for selects
+  const zones = useMemo(() => {
+    const wh = warehouses.find(w => w.id === selectedWarehouseId)
+    return wh ? wh.zones : []
+  }, [selectedWarehouseId, warehouses])
+
+  const aisles = useMemo(() => {
+    const zone = zones.find((z: any) => z.id === selectedZoneId)
+    return zone ? zone.aisles : []
+  }, [selectedZoneId, zones])
+
+  const shelves = useMemo(() => {
+    const aisle = aisles.find((a: any) => a.id === selectedAisleId)
+    return aisle ? aisle.shelves : []
+  }, [selectedAisleId, aisles])
+
+  const shelfBins = useMemo(() => {
+    const shelf = shelves.find((s: any) => s.id === selectedShelfId)
+    return shelf ? shelf.bins : []
+  }, [selectedShelfId, shelves])
+
+  // Dropdown change handlers to reset children selections
+  const handleWarehouseChange = (id: string) => {
+    setSelectedWarehouseId(id)
+    setSelectedZoneId('')
+    setSelectedAisleId('')
+    setSelectedShelfId('')
+    setSelectedBinId('')
+  }
+
+  const handleZoneChange = (id: string) => {
+    setSelectedZoneId(id)
+    setSelectedAisleId('')
+    setSelectedShelfId('')
+    setSelectedBinId('')
+  }
+
+  const handleAisleChange = (id: string) => {
+    setSelectedAisleId(id)
+    setSelectedShelfId('')
+    setSelectedBinId('')
+  }
+
+  const handleShelfChange = (id: string) => {
+    setSelectedShelfId(id)
+    setSelectedBinId('')
+  }
+
+  // AI Recommendation Trigger
+  const watchedDepartmentId = watch('department_id')
+
+  const getAIRecommendation = async (deptId: string) => {
+    if (!deptId) return
+    const dept = departments.find(d => d.id === deptId)
+    if (!dept) return
+    
+    setIsRecommending(true)
+    try {
+      const res = await api.get('/warehouse/recommend', {
+        params: { department: dept.name }
+      })
+      setAiRecommendation(res.data)
+      
+      if (res.data?.recommendation?.bin_id) {
+        const rec = res.data.recommendation
+        setSelectedBinId(rec.bin_id)
+        
+        let foundShelf: any = null
+        let foundAisle: any = null
+        let foundZone: any = null
+        let foundWarehouse: any = null
+
+        for (const wh of warehouses) {
+          for (const zone of wh.zones) {
+            for (const aisle of zone.aisles) {
+              for (const shelf of aisle.shelves) {
+                if (shelf.bins.some((b: any) => b.id === rec.bin_id)) {
+                  foundShelf = shelf
+                  foundAisle = aisle
+                  foundZone = zone
+                  foundWarehouse = wh
+                  break
+                }
+              }
+            }
+          }
+        }
+
+        if (foundWarehouse) {
+          setSelectedWarehouseId(foundWarehouse.id)
+          setSelectedZoneId(foundZone.id)
+          setSelectedAisleId(foundAisle.id)
+          setSelectedShelfId(foundShelf.id)
+        }
+      } else {
+        setAiRecommendation(null)
+      }
+    } catch (err) {
+      console.error('Failed to get AI recommendation:', err)
+      setAiRecommendation(null)
+    } finally {
+      setIsRecommending(false)
+    }
+  }
+
+  useEffect(() => {
+    if (locationMode === 'ai' && watchedDepartmentId && departments.length > 0 && warehouses.length > 0) {
+      getAIRecommendation(watchedDepartmentId)
+    }
+  }, [locationMode, watchedDepartmentId, departments, warehouses])
+
+  // Automatically update the location field based on selected bin code
+  useEffect(() => {
+    if (locationMode !== 'custom' && selectedBinId && warehouses.length > 0) {
+      const binCode = warehouses
+        .flatMap((w: any) => w.zones)
+        .flatMap((z: any) => z.aisles)
+        .flatMap((a: any) => a.shelves)
+        .flatMap((s: any) => s.bins)
+        .find((b: any) => b.id === selectedBinId)?.bin_code || ''
+      setValue('location', binCode ? binCode.substring(0, 16) : 'Bin Location')
+    }
+  }, [locationMode, selectedBinId, warehouses, setValue])
+
   const onFormSubmit = async (data: RecordFormValues) => {
+    if (locationMode !== 'custom' && !selectedBinId) {
+      alert('Please select a physical storage bin slot or switch to Custom location mode.')
+      return
+    }
+
     const payload = {
       ...data,
       record_type_id: data.record_type_id === '' ? null : data.record_type_id,
       category_id: data.category_id === '' ? null : data.category_id,
+      bin_id: locationMode !== 'custom' ? selectedBinId : null,
+      location_mode: locationMode,
+      old_bin_id: oldBinId || null
     }
     await onSubmit(payload)
   }
@@ -387,16 +587,237 @@ export default function RecordForm({ initialData, onSubmit, onCancel, title }: R
             {errors.department_id && <p className="text-xs text-destructive">{errors.department_id.message}</p>}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Location (max 16 chars)</label>
-            <input
-              type="text"
-              {...register('location')}
-              maxLength={16}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-              placeholder="e.g. Warehouse A"
-            />
-            {errors.location && <p className="text-xs text-destructive">{errors.location.message}</p>}
+          {/* Physical Location Selector & Visual Grid Map */}
+          <div className="col-span-1 md:col-span-2 border rounded-xl p-5 bg-muted/10 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+              <label className="text-sm font-semibold flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                Physical Storage Layout Mapping
+              </label>
+              <div className="flex bg-muted rounded-lg p-0.5 text-xs font-medium self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setLocationMode('ai')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md transition-all flex items-center gap-1",
+                    locationMode === 'ai' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Sparkles className="h-3 w-3 text-violet-500" />
+                  AI Recommended
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationMode('manual')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md transition-all",
+                    locationMode === 'manual' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Manual Select
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationMode('custom')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md transition-all",
+                    locationMode === 'custom' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Custom / Legacy
+                </button>
+              </div>
+            </div>
+
+            {/* A. AI Recommendation View */}
+            {locationMode === 'ai' && (
+              <div className="space-y-3">
+                {!watchedDepartmentId ? (
+                  <p className="text-xs text-muted-foreground italic bg-background border rounded-lg p-4 text-center">
+                    Please select a Department first to load the optimal storage slot recommendation.
+                  </p>
+                ) : isRecommending ? (
+                  <div className="flex items-center justify-center py-6 bg-background border rounded-lg">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                    <span className="text-xs text-muted-foreground">Calculating optimal warehouse bin...</span>
+                  </div>
+                ) : aiRecommendation?.recommendation ? (
+                  <div className="bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-200/50 dark:border-violet-850/30 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-sm text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-950/50 px-2.5 py-1 rounded border border-violet-200 dark:border-violet-900/50">
+                          {aiRecommendation.recommendation.bin_code}
+                        </span>
+                        <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          ✨ Optimal Cluster
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono">Score: {aiRecommendation.recommendation.score}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex flex-col gap-1">
+                      <p className="font-medium text-foreground">{aiRecommendation.recommendation.location}</p>
+                      <p>Distance to main entry: {aiRecommendation.recommendation.distance_to_entry}m</p>
+                      <p className="italic text-[11px] text-violet-600 dark:text-violet-400 mt-1">{aiRecommendation.reason}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-lg p-4 text-xs text-amber-800 dark:text-amber-300 text-center">
+                    No vacant bins available matching layouts. Please switch to "Manual Select" or "Custom/Legacy".
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* B. Manual Selection Dropdowns */}
+            {locationMode === 'manual' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Warehouse</label>
+                  <select
+                    value={selectedWarehouseId}
+                    onChange={e => handleWarehouseChange(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  >
+                    <option value="">Select Warehouse</option>
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Zone</label>
+                  <select
+                    value={selectedZoneId}
+                    onChange={e => handleZoneChange(e.target.value)}
+                    disabled={!selectedWarehouseId}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none disabled:bg-muted disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Zone</option>
+                    {zones.map((z: any) => (
+                      <option key={z.id} value={z.id}>{z.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Aisle</label>
+                  <select
+                    value={selectedAisleId}
+                    onChange={e => handleAisleChange(e.target.value)}
+                    disabled={!selectedZoneId}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none disabled:bg-muted disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Aisle</option>
+                    {aisles.map((a: any) => (
+                      <option key={a.id} value={a.id}>Aisle {a.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Shelf Level</label>
+                  <select
+                    value={selectedShelfId}
+                    onChange={e => handleShelfChange(e.target.value)}
+                    disabled={!selectedAisleId}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none disabled:bg-muted disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Shelf</option>
+                    {shelves.map((s: any) => (
+                      <option key={s.id} value={s.id}>Level {s.level} ({s.bins.filter((b: any) => b.is_occupied).length}/{s.bins.length})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1 col-span-full">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Warehouse Bin</label>
+                  <select
+                    value={selectedBinId}
+                    onChange={e => setSelectedBinId(e.target.value)}
+                    disabled={!selectedShelfId}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none disabled:bg-muted disabled:cursor-not-allowed font-mono"
+                  >
+                    <option value="">Select Bin Slot</option>
+                    {shelfBins.map((b: any) => (
+                      <option key={b.id} value={b.id} disabled={b.is_occupied && b.id !== oldBinId}>
+                        {b.bin_code} {b.is_occupied ? (b.id === oldBinId ? '(Current slot)' : '(Occupied)') : '(Available)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* C. Interactive Visual Shelf Grid Map */}
+            {locationMode !== 'custom' && selectedShelfId && (
+              <div className="border rounded-lg bg-background p-4 space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground border-b pb-2">
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-primary" />
+                    Shelf Level Layout Map
+                  </span>
+                  <span>Click to select an empty bin slot</span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                  {shelfBins.map((bin: any) => {
+                    const isSelected = selectedBinId === bin.id
+                    const isOccupied = bin.is_occupied && bin.id !== oldBinId
+                    const isRecommended = aiRecommendation?.recommendation?.bin_id === bin.id
+
+                    return (
+                      <button
+                        key={bin.id}
+                        type="button"
+                        onClick={() => {
+                          if (!isOccupied) setSelectedBinId(bin.id)
+                        }}
+                        disabled={isOccupied}
+                        title={isOccupied ? 'Occupied' : isSelected ? 'Selected' : 'Available'}
+                        className={cn(
+                          "relative p-2.5 rounded-lg border font-mono text-xs font-black text-center flex flex-col items-center justify-center transition-all min-h-[50px] shadow-sm select-none",
+                          isOccupied
+                            ? "bg-slate-100 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60"
+                            : isSelected
+                              ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/30 scale-105"
+                              : isRecommended
+                                ? "bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400 border-violet-300 dark:border-violet-850 hover:border-violet-400"
+                                : "bg-card text-foreground border-border hover:border-primary/50 hover:bg-muted/30"
+                        )}
+                      >
+                        <span>{bin.bin_code}</span>
+                        {isRecommended && !isSelected && (
+                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                          </span>
+                        )}
+                        {isSelected && <Check className="h-3 w-3 mt-1 text-primary-foreground animate-bounce" />}
+                      </button>
+                    )
+                  })}
+                  {shelfBins.length === 0 && (
+                    <div className="col-span-full py-4 text-center text-xs text-muted-foreground italic">
+                      No bins created on this shelf.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* D. Custom Legacy View */}
+            {locationMode === 'custom' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Legacy Location Text Field</label>
+                <input
+                  type="text"
+                  {...register('location')}
+                  maxLength={16}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="e.g. Warehouse A"
+                />
+                {errors.location && <p className="text-xs text-destructive">{errors.location.message}</p>}
+                <p className="text-[10px] text-muted-foreground">
+                  Use this field ONLY for offsite storage or legacy system references that do not map to the current 5-tier spatial inventory.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

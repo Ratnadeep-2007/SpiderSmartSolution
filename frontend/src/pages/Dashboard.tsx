@@ -13,6 +13,7 @@ import {
   ShieldCheck as ShieldCheckIcon
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface DashboardStats {
   total_records: number
@@ -30,6 +31,7 @@ interface ActivityLog {
 }
 
 export default function Dashboard() {
+  const { translate } = useLanguageStore()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [activities, setActivities] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,8 +73,8 @@ export default function Dashboard() {
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">Welcome back. Here is what's happening across your inventory today.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('Dashboard Overview')}</h1>
+          <p className="text-muted-foreground mt-1">{translate("Welcome back. Here is what's happening across your inventory today.")}</p>
         </div>
       </div>
 
@@ -82,8 +84,8 @@ export default function Dashboard() {
           <div key={stat.name} className="rounded-xl border bg-card p-6 shadow-sm transition-hover hover:shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
-                <p className="text-2xl font-bold mt-1">{stat.value.toLocaleString()}</p>
+                <p className="text-sm font-medium text-muted-foreground">{translate(stat.name)}</p>
+                <p className="text-2xl font-bold mt-1">{translate(stat.value.toLocaleString())}</p>
               </div>
               <div className={`rounded-lg ${stat.bg} p-2.5`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
@@ -99,10 +101,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-semibold flex items-center">
               <History className="mr-2 h-5 w-5 text-muted-foreground" />
-              Recent Activity
+              {translate('Recent Activity')}
             </h3>
             <Link to="/audit" className="text-xs font-medium text-primary hover:underline flex items-center">
-              View All <ArrowRight className="ml-1 h-3 w-3" />
+              {translate('View All')} <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </div>
           <div className="space-y-6 flex-1">
@@ -115,38 +117,38 @@ export default function Dashboard() {
                 }`} />
                 <div className="flex-1 space-y-0.5">
                   <p className="text-sm font-medium">
-                    {log.action} Action on {log.record_id ? `Record #${log.record_id.split('-')[0]}` : 'System'}
+                    {translate(log.action)} {translate('Action on')} {log.record_id ? `${translate('Record')} #${translate(log.record_id.split('-')[0])}` : translate('System')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Performed by {log.user_email || 'System'} • {new Date(log.performed_at).toLocaleTimeString()}
+                    {translate('Performed by')} {translate(log.user_email || 'System')} • {translate(new Date(log.performed_at).toLocaleTimeString())}
                   </p>
                 </div>
               </div>
             )) : (
-              <p className="text-sm text-muted-foreground italic">No recent activity found.</p>
+              <p className="text-sm text-muted-foreground italic">{translate('No recent activity found.')}</p>
             )}
           </div>
         </div>
 
         {/* Quick Actions */}
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold mb-6">Quick Actions</h3>
+          <h3 className="font-semibold mb-6">{translate('Quick Actions')}</h3>
           <div className="grid grid-cols-2 gap-4">
             <Link to="/records" className="flex flex-col items-center justify-center rounded-xl border border-dashed p-6 hover:bg-muted/50 hover:border-primary/50 transition-all group">
               <Plus className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
-              <span className="text-sm font-semibold">Inventory</span>
+              <span className="text-sm font-semibold">{translate('Inventory')}</span>
             </Link>
             <Link to="/import" className="flex flex-col items-center justify-center rounded-xl border border-dashed p-6 hover:bg-muted/50 hover:border-primary/50 transition-all group">
               <Upload className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
-              <span className="text-sm font-semibold">Bulk Import</span>
+              <span className="text-sm font-semibold">{translate('Bulk Import')}</span>
             </Link>
             <Link to="/reports" className="flex flex-col items-center justify-center rounded-xl border border-dashed p-6 hover:bg-muted/50 hover:border-primary/50 transition-all group">
               <FileCheck className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
-              <span className="text-sm font-semibold">Reports</span>
+              <span className="text-sm font-semibold">{translate('Reports')}</span>
             </Link>
             <Link to="/audit" className="flex flex-col items-center justify-center rounded-xl border border-dashed p-6 hover:bg-muted/50 hover:border-primary/50 transition-all group">
               <ShieldCheckIcon className="h-8 w-8 mb-2 text-muted-foreground group-hover:text-primary" />
-              <span className="text-sm font-semibold">Audit Log</span>
+              <span className="text-sm font-semibold">{translate('Audit Log')}</span>
             </Link>
           </div>
         </div>

@@ -375,6 +375,14 @@ async def delete_record(db: AsyncSession, record_id: uuid.UUID, user_id: uuid.UU
         changes=snapshot_json
     )
     
+    # Free up any warehouse bin mapping
+    from ..models.warehouse import WarehouseBin
+    await db.execute(
+        update(WarehouseBin)
+        .where(WarehouseBin.record_id == record_id)
+        .values(record_id=None, is_occupied=False)
+    )
+    
     await db.delete(db_record)
     await db.commit()
     return True

@@ -72,8 +72,35 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-family-override, 'Inter', sans-serif);
   }
   input, select, textarea {
     @apply bg-background text-foreground;
   }
+}
+
+/* Arabic / RTL Language Support */
+html[lang="ar"] body,
+html[lang="ar"] {
+  font-family: 'Cairo', 'Noto Sans Arabic', Arial, sans-serif;
+}
+
+/* When Arabic is active, ensure text elements use the Arabic font */
+html[lang="ar"] h1,
+html[lang="ar"] h2,
+html[lang="ar"] h3,
+html[lang="ar"] h4,
+html[lang="ar"] h5,
+html[lang="ar"] p,
+html[lang="ar"] span,
+html[lang="ar"] button,
+html[lang="ar"] label,
+html[lang="ar"] input,
+html[lang="ar"] select,
+html[lang="ar"] textarea,
+html[lang="ar"] td,
+html[lang="ar"] th,
+html[lang="ar"] li,
+html[lang="ar"] a {
+  font-family: 'Cairo', 'Noto Sans Arabic', Arial, sans-serif;
 }

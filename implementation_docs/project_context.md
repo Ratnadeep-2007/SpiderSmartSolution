@@ -94,6 +94,12 @@ A dual-provider LLM interface integrated as a drawer:
 * **Safe Write Proposals:** When the user requests a database modification (like tagging or holding records), the LLM generates a structured JSON block proposal. The backend parses and intercept it, returning a pending proposal. The frontend prompts the user to explicitly confirm or deny the action before execution.
 * **Offline Fallback Engine:** If no LLM keys are supplied, the Copilot handles natural language commands using regex queries, fuzzy database filters (`ilike`), and direct shorthand inputs (e.g. `hold [barcode] [reason]`).
 
+### 3.8 Language & Localization Engine (Arabic/Abu Dhabi)
+A dynamic localization engine configured for corporate users in Abu Dhabi:
+* **Left-to-Right (LTR) Layout Preservation:** To keep navigation panels, sidebar links, tables, and headers aligned consistently without shifting components, the layout is fixed to Left-to-Right (`dir="ltr"`).
+* **Dynamic Translation Mapping:** Automatically translates UI static strings, menu items, table headers, and database values (including categories, entities, departments, descriptions, tags, and status labels) to Arabic.
+* **Eastern Arabic Numeral Conversion:** Formats and displays English digits/years (e.g., `2025` or `1`) into Eastern Arabic numerals (`٢٠٢٥`, `١`) when the language is toggled.
+
 ---
 
 ## 4. Repository & Directory Structure

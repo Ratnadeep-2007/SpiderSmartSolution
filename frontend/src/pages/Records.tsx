@@ -19,6 +19,7 @@ import FilterPanel from '@/components/search/FilterPanel'
 import SavedSearches from '@/components/search/SavedSearches'
 import CategoryTree from '@/components/records/CategoryTree'
 import api from '@/lib/api'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface InventoryRecord {
   id: string
@@ -46,6 +47,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function Records() {
+  const { translate, language } = useLanguageStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   
@@ -106,7 +108,15 @@ export default function Records() {
 
   const handleCreateRecord = async (data: any) => {
     try {
-      await api.post('/records/', data)
+      const { bin_id, location_mode, old_bin_id, ...recordData } = data
+      const res = await api.post('/records/', recordData)
+      const newRecord = res.data
+
+      // Assign record to bin if specified
+      if (location_mode !== 'custom' && bin_id) {
+        await api.post(`/warehouse/bins/${bin_id}/assign`, { record_id: newRecord.id })
+      }
+
       setIsCreateModalOpen(false)
       fetchRecords()
     } catch (err: unknown) {
@@ -118,9 +128,22 @@ export default function Records() {
   const handleEditRecord = async (data: any) => {
     if (!selectedRecord) return
     try {
-      await api.put(`/records/${selectedRecord.id}`, data, {
+      const { bin_id, location_mode, old_bin_id, ...recordData } = data
+      const res = await api.put(`/records/${selectedRecord.id}`, recordData, {
         headers: { 'If-Match': selectedRecord.updated_at }
       })
+      const updatedRecord = res.data
+
+      // Update spatial bin mapping if changed
+      if (bin_id !== old_bin_id) {
+        if (old_bin_id) {
+          await api.delete(`/warehouse/bins/${old_bin_id}/assign`)
+        }
+        if (location_mode !== 'custom' && bin_id) {
+          await api.post(`/warehouse/bins/${bin_id}/assign`, { record_id: updatedRecord.id })
+        }
+      }
+
       setIsEditModalOpen(false)
       setSelectedRecord(null)
       fetchRecords()
@@ -211,12 +234,12 @@ export default function Records() {
         <div className="bg-card rounded-xl border shadow-sm p-4 space-y-4">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <Search className="h-4 w-4" />
-            Barcode Lookup
+            {translate('Barcode Lookup')}
           </h3>
           <form onSubmit={handleBarcodeLookup} className="relative">
             <input 
               type="text"
-              placeholder="Type barcode..."
+              placeholder={translate('Type barcode...')}
               className="w-full rounded-md border bg-background py-1.5 pl-3 pr-8 text-xs outline-none focus:ring-1 focus:ring-primary"
               value={barcodeLookup}
               onChange={(e) => setBarcodeLookup(e.target.value)}
@@ -240,7 +263,7 @@ export default function Records() {
         <div className="bg-card rounded-xl border shadow-sm p-4 space-y-4">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            Browse Taxonomy
+            {translate('Browse Taxonomy')}
           </h3>
           <CategoryTree 
             selectedId={searchParams.get('category_id')}
@@ -259,26 +282,26 @@ export default function Records() {
       <div className="lg:col-span-3 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Records</h1>
-            <p className="text-muted-foreground mt-1">Found {total} records matching criteria.</p>
+            <h1 className="text-3xl font-bold tracking-tight">{translate('Records')}</h1>
+            <p className="text-muted-foreground mt-1">{translate('Found')} {translate(String(total))} {translate('records matching criteria.')}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative group/export">
               <button 
                 className="flex items-center justify-center rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent transition-colors"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Export
+                <Download className={`${language === 'ar' ? 'ml-2' : 'mr-2'} h-4 w-4`} />
+                {translate('Export')}
               </button>
               <div className="absolute right-0 top-full mt-1 w-40 bg-card border rounded-lg shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all z-20 overflow-hidden">
                 <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-muted transition-colors flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" /> CSV Spreadsheet
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" /> {translate('CSV Spreadsheet')}
                 </button>
                 <button onClick={() => handleExport('xlsx')} className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-muted transition-colors flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" /> Excel (XLSX)
+                  <div className="w-2 h-2 rounded-full bg-blue-500" /> {translate('Excel (XLSX)')}
                 </button>
                 <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-muted transition-colors flex items-center gap-2 border-t">
-                  <div className="w-2 h-2 rounded-full bg-rose-500" /> PDF Report
+                  <div className="w-2 h-2 rounded-full bg-rose-500" /> {translate('PDF Report')}
                 </button>
               </div>
             </div>
@@ -286,8 +309,8 @@ export default function Records() {
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Record
+              <Plus className={`${language === 'ar' ? 'ml-2' : 'mr-2'} h-4 w-4`} />
+              {translate('Create Record')}
             </button>
           </div>
         </div>
@@ -297,7 +320,7 @@ export default function Records() {
           <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search everything: barcodes, description, entity, department..."
+            placeholder={translate('Search everything: barcodes, description, entity, department...')}
             className="w-full h-11 rounded-xl border border-input bg-background py-2 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
             value={q}
             onChange={(e) => {
@@ -343,11 +366,11 @@ export default function Records() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
               </span>
-              Enable AI Semantic Search (Fuzzy & Contextual Matching)
+              {translate('Enable AI Semantic Search (Fuzzy & Contextual Matching)')}
             </label>
           </div>
           <span className="text-[10px] text-muted-foreground sm:ml-auto">
-            Searches meaning and concepts instead of literal keyword matches.
+            {translate('Searches meaning and concepts instead of literal keyword matches.')}
           </span>
         </div>
 
@@ -379,7 +402,7 @@ export default function Records() {
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden relative">
           {selectedIds.length > 0 && (
             <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground px-4 py-2 z-10 flex items-center justify-between animate-in slide-in-from-top-full">
-              <span className="text-xs font-bold uppercase tracking-widest">{selectedIds.length} Records Selected</span>
+              <span className="text-xs font-bold uppercase tracking-widest">{translate(String(selectedIds.length))} {translate('Records Selected')}</span>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={handleExportZip}
@@ -387,7 +410,7 @@ export default function Records() {
                   className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold transition-colors"
                 >
                   {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                  eDiscovery ZIP
+                  {translate('eDiscovery ZIP')}
                 </button>
                 <button 
                   onClick={() => setSelectedIds([])}
@@ -406,8 +429,8 @@ export default function Records() {
           ) : records.length === 0 ? (
             <div className="text-center py-24">
               <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">No records found</h3>
-              <p className="text-sm text-muted-foreground/60">Try adjusting your search terms or filters.</p>
+              <h3 className="text-lg font-medium text-muted-foreground">{translate('No records found')}</h3>
+              <p className="text-sm text-muted-foreground/60">{translate('Try adjusting your search terms or filters.')}</p>
             </div>
           ) : (
             <>
@@ -423,12 +446,12 @@ export default function Records() {
                           onChange={toggleSelectAll}
                         />
                       </th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground">Barcodes</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground">Origin</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground">Taxonomy</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground">Details</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground text-center">Status</th>
-                      <th className="px-4 py-3 font-semibold text-muted-foreground text-right">Actions</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">{translate('Barcodes')}</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">{translate('Origin')}</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">{translate('Taxonomy')}</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground">{translate('Details')}</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground text-center">{translate('Status')}</th>
+                      <th className="px-4 py-3 font-semibold text-muted-foreground text-right">{translate('Actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -446,41 +469,41 @@ export default function Records() {
                           />
                         </td>
                         <td className="px-4 py-4">
-                          <div className="font-mono text-xs font-bold text-primary">{record.box_barcode}</div>
-                          <div className="font-mono text-[10px] text-muted-foreground mt-1">{record.file_barcode}</div>
+                          <div className="font-mono text-xs font-bold text-primary">{translate(record.box_barcode)}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground mt-1">{translate(record.file_barcode)}</div>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{record.entity}</span>
-                            <span className="text-[10px] font-mono bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground">{record.entity_code}</span>
+                            <span className="font-medium">{translate(record.entity)}</span>
+                            <span className="text-[10px] font-mono bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground">{translate(record.entity_code)}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground">{record.department}</div>
+                          <div className="text-xs text-muted-foreground">{translate(record.department)}</div>
                         </td>
                         <td className="px-4 py-4">
                           <div className="text-xs font-bold text-primary truncate max-w-[120px]">
-                            {record.category?.name || 'Uncategorized'}
+                            {record.category?.name ? translate(record.category.name) : translate('Uncategorized')}
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {record.tags?.slice(0, 2).map(tag => (
                               <span key={tag} className="text-[9px] bg-primary/5 text-primary border border-primary/10 px-1 rounded">
-                                {tag}
+                                {translate(tag)}
                               </span>
                             ))}
                             {record.tags?.length > 2 && (
                               <span className="text-[9px] text-muted-foreground">+{record.tags.length - 2}</span>
                             )}
                             {(!record.tags || record.tags.length === 0) && (
-                              <span className="text-[9px] text-muted-foreground italic">no tags</span>
+                              <span className="text-[9px] text-muted-foreground italic">{translate('no tags')}</span>
                             )}
                           </div>
                         </td>
                         <td className="px-4 py-4 max-w-[200px]">
-                          <div className="text-xs font-medium truncate">{record.description}</div>
+                          <div className="text-xs font-medium truncate">{translate(record.description)}</div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded uppercase font-bold text-muted-foreground tracking-tighter">
-                              {record.record_type?.name || 'Standard'}
+                              {record.record_type?.name ? translate(record.record_type.name) : translate('Standard')}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">{record.record_date} ({record.year})</span>
+                            <span className="text-[10px] text-muted-foreground">{translate(record.record_date)} ({translate(record.year?.toString())})</span>
                           </div>
                         </td>
                         <td className="px-4 py-4 text-center">
@@ -488,7 +511,7 @@ export default function Records() {
                             'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
                             statusColors[record.disposition_status] || 'bg-gray-100 text-gray-700'
                           )}>
-                            {record.disposition_status}
+                            {translate(record.disposition_status)}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-right">
@@ -528,7 +551,7 @@ export default function Records() {
               {/* Pagination Footer */}
               <div className="px-4 py-3 bg-muted/20 border-t flex items-center justify-between">
                 <div className="text-xs text-muted-foreground">
-                  Showing {(page - 1) * 50 + 1} to {Math.min(page * 50, total)} of {total} records
+                  {translate('Showing')} {translate(String((page - 1) * 50 + 1))} {translate('to')} {translate(String(Math.min(page * 50, total)))} {translate('of')} {translate(String(total))} {translate('records')}
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
@@ -542,7 +565,7 @@ export default function Records() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="text-xs font-medium px-2">Page {page}</span>
+                  <span className="text-xs font-medium px-2">{translate('Page')} {translate(String(page))}</span>
                   <button 
                     disabled={page * 50 >= total}
                     onClick={() => {
@@ -566,7 +589,7 @@ export default function Records() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <RecordForm 
-              title="Create New Inventory Record"
+              title={translate('Create New Inventory Record')}
               onSubmit={handleCreateRecord}
               onCancel={() => setIsCreateModalOpen(false)}
             />
@@ -579,7 +602,7 @@ export default function Records() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <RecordForm 
-              title="Edit Inventory Record"
+              title={translate('Edit Inventory Record')}
               initialData={selectedRecord as any}
               onSubmit={handleEditRecord}
               onCancel={() => {

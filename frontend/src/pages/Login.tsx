@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ShieldCheck, Lock, Mail, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/api'
-
+import { useLanguageStore } from '@/store/languageStore'
 import { AxiosError } from 'axios'
 
 interface ApiErrorResponse {
@@ -11,6 +11,7 @@ interface ApiErrorResponse {
 }
 
 export default function Login() {
+  const { translate } = useLanguageStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +49,7 @@ export default function Login() {
       navigate('/')
     } catch (err) {
       console.error('Login error:', err)
-      let errorMessage = 'Invalid email or password. Please check your credentials.'
+      let errorMessage = translate('Invalid email or password. Please check your credentials.') || 'Invalid email or password. Please check your credentials.'
       const axiosError = err as AxiosError<ApiErrorResponse>
       
       if (axiosError.response?.data?.detail) {
@@ -77,7 +78,7 @@ export default function Login() {
             SpiderSmart IMS
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to manage your inventory
+            {translate('Sign in to manage your inventory')}
           </p>
         </div>
 
@@ -95,7 +96,7 @@ export default function Login() {
                 type="email"
                 required
                 className="block w-full rounded-md border border-input py-2.5 pl-10 pr-3 text-foreground placeholder-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm outline-none"
-                placeholder="Email address"
+                placeholder={translate('Email address')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -106,7 +107,7 @@ export default function Login() {
                 type="password"
                 required
                 className="block w-full rounded-md border border-input py-2.5 pl-10 pr-3 text-foreground placeholder-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:text-sm outline-none"
-                placeholder="Password"
+                placeholder={translate('Password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -122,15 +123,15 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {translate('Signing in...')}
                 </>
-              ) : 'Sign In'}
+              ) : translate('Sign In')}
             </button>
           </div>
         </form>
 
         <div className="mt-6 text-center text-xs text-muted-foreground">
-          <p>Phase 1 build • Secured via JWT</p>
+          <p>{translate('Phase 1 build • Secured via JWT')}</p>
         </div>
       </div>
     </div>

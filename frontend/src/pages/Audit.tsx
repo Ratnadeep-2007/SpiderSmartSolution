@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface AuditLog {
   id: string
@@ -35,6 +36,7 @@ interface VerificationResult {
 }
 
 export default function Audit() {
+  const { translate } = useLanguageStore()
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -62,7 +64,7 @@ export default function Audit() {
       link.remove()
       window.URL.revokeObjectURL(url)
     } catch (_err) {
-      alert('Failed to export audit logs')
+      alert(translate('Failed to export audit logs') || 'Failed to export audit logs')
     }
   }
 
@@ -100,7 +102,7 @@ export default function Audit() {
       const res = await api.get('/audit/verify')
       setVerificationResult(res.data)
     } catch (err) {
-      alert('Verification failed')
+      alert(translate('Verification failed') || 'Verification failed')
     } finally {
       setIsVerifying(false)
     }
@@ -126,9 +128,9 @@ export default function Audit() {
     <div className="p-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Compliance Audit Trail</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('Compliance Audit Trail')}</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Immutable log of all system actions with cryptographic tamper-evidence.
+            {translate('Immutable log of all system actions with cryptographic tamper-evidence.')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -137,7 +139,7 @@ export default function Audit() {
             className="flex items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-all shadow-sm"
           >
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {translate('Export CSV')}
           </button>
           <button 
             onClick={handleVerify}
@@ -151,7 +153,7 @@ export default function Audit() {
             ) : (
               <ShieldCheck className="mr-2 h-4 w-4" />
             )}
-            Verify Log Integrity
+            {translate('Verify Log Integrity')}
           </button>
         </div>
       </div>
@@ -170,12 +172,12 @@ export default function Audit() {
           )}
           <div>
             <h3 className="font-bold">
-              {verificationResult.is_valid ? 'Integrity Verified' : 'TAMPERING DETECTED'}
+              {verificationResult.is_valid ? translate('Integrity Verified') : translate('TAMPERING DETECTED')}
             </h3>
             <p className="text-sm opacity-90">
               {verificationResult.is_valid 
-                ? `All ${verificationResult.total_checked} logs have been mathematically verified against their cryptographic hashes.`
-                : `Found ${verificationResult.invalid_log_ids.length} invalid entries out of ${verificationResult.total_checked} logs checked. Immediate investigation required.`}
+                ? `${translate('All')} ${translate(String(verificationResult.total_checked))} ${translate('logs have been mathematically verified against their cryptographic hashes.')}`
+                : `${translate('Found')} ${translate(String(verificationResult.invalid_log_ids.length))} ${translate('invalid entries out of')} ${translate(String(verificationResult.total_checked))} ${translate('logs checked. Immediate investigation required.')}`}
             </p>
           </div>
         </div>
@@ -190,18 +192,18 @@ export default function Audit() {
             onChange={(e) => setActionFilter(e.target.value)}
             className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none appearance-none"
           >
-            <option value="">All Actions</option>
-            <option value="CREATE">CREATE</option>
-            <option value="UPDATE">UPDATE</option>
-            <option value="DELETE">DELETE</option>
-            <option value="LOGIN">LOGIN</option>
+            <option value="">{translate('All Actions')}</option>
+            <option value="CREATE">{translate('CREATE')}</option>
+            <option value="UPDATE">{translate('UPDATE')}</option>
+            <option value="DELETE">{translate('DELETE')}</option>
+            <option value="LOGIN">{translate('LOGIN')}</option>
           </select>
         </div>
         <div className="relative">
           <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input 
             type="text"
-            placeholder="Filter by User ID..."
+            placeholder={translate('Filter by User ID...')}
             value={userFilter}
             onChange={(e) => setUserFilter(e.target.value)}
             className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary outline-none"
@@ -221,11 +223,11 @@ export default function Audit() {
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-muted/50 border-b text-muted-foreground font-semibold">
                   <tr>
-                    <th className="px-6 py-4">Timestamp</th>
-                    <th className="px-6 py-4">Action</th>
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4">Resource ID</th>
-                    <th className="px-6 py-4 text-right">Details</th>
+                    <th className="px-6 py-4">{translate('Timestamp')}</th>
+                    <th className="px-6 py-4">{translate('Action')}</th>
+                    <th className="px-6 py-4">{translate('User')}</th>
+                    <th className="px-6 py-4">{translate('Resource ID')}</th>
+                    <th className="px-6 py-4 text-right">{translate('Details')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -255,12 +257,12 @@ export default function Audit() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-medium">{log.app_user_id || 'System'}</div>
+                          <div className="font-medium">{log.app_user_id || translate('System')}</div>
                           <div className="text-[10px] text-muted-foreground">{log.user_email}</div>
                           <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{log.ip_address}</div>
                         </td>
                         <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
-                          {log.record_id || 'N/A'}
+                          {log.record_id || translate('N/A')}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button 
@@ -268,7 +270,7 @@ export default function Audit() {
                             className="p-2 hover:bg-muted rounded-md transition-colors inline-flex items-center gap-1.5 text-primary font-medium"
                           >
                             <Eye className="h-4 w-4" />
-                            <span className="text-xs">Inspect</span>
+                            <span className="text-xs">{translate('Inspect')}</span>
                           </button>
                         </td>
                       </tr>
@@ -281,7 +283,7 @@ export default function Audit() {
             {/* Pagination */}
             <div className="px-6 py-4 bg-muted/20 border-t flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                Total Logs: {total}
+                {translate('Total Logs:')} {translate(String(total))}
               </div>
               <div className="flex items-center gap-2">
                 <button 
@@ -291,7 +293,7 @@ export default function Audit() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-xs font-medium px-2">Page {page}</span>
+                <span className="text-xs font-medium px-2">{translate('Page')} {translate(String(page))}</span>
                 <button 
                   disabled={page * 20 >= total}
                   onClick={() => setPage(p => p + 1)}
@@ -312,7 +314,7 @@ export default function Audit() {
             <div className="px-6 py-4 border-b bg-muted/20 flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2">
                 <Eye className="h-4 w-4" />
-                Payload Inspection
+                {translate('Payload Inspection')}
               </h2>
               <button onClick={() => setSelectedLog(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
@@ -322,16 +324,16 @@ export default function Audit() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-muted-foreground block mb-1 uppercase font-bold tracking-widest text-[9px]">Log ID</span>
+                    <span className="text-muted-foreground block mb-1 uppercase font-bold tracking-widest text-[9px]">{translate('Log ID')}</span>
                     <span className="font-mono">{selectedLog.id}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block mb-1 uppercase font-bold tracking-widest text-[9px]">Tamper Hash</span>
+                    <span className="text-muted-foreground block mb-1 uppercase font-bold tracking-widest text-[9px]">{translate('Tamper Hash')}</span>
                     <span className="font-mono break-all">{selectedLog.tamper_hash}</span>
                   </div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block mb-2 uppercase font-bold tracking-widest text-[9px]">Data Changes (JSON)</span>
+                  <span className="text-muted-foreground block mb-2 uppercase font-bold tracking-widest text-[9px]">{translate('Data Changes (JSON)')}</span>
                   <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-[11px] font-mono leading-relaxed">
                     {JSON.stringify(selectedLog.changes, null, 2)}
                   </pre>
@@ -343,7 +345,7 @@ export default function Audit() {
                 onClick={() => setSelectedLog(null)}
                 className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md"
               >
-                Close
+                {translate('Close')}
               </button>
             </div>
           </div>

@@ -32,6 +32,7 @@ import {
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useLanguageStore } from '@/store/languageStore'
 
 const COLORS = ['#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e']
 
@@ -46,6 +47,7 @@ const ALL_COLUMNS = [
   { id: 'retention_due_date', label: 'Due Date' },
   { id: 'created_at', label: 'Created At' },
 ]
+// Note: Labels will be translated at render time via translate()
 
 interface ReportDataItem {
   name: string
@@ -76,6 +78,7 @@ interface ExportSchedule {
 }
 
 export default function Reports() {
+  const { translate } = useLanguageStore()
   const [activeReport, setActiveReport] = useState('entity')
   const [data, setData] = useState<ReportDataItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,17 +91,17 @@ export default function Reports() {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const reports = useMemo(() => [
-    { id: 'entity', name: 'Records by Entity', icon: MapPin, endpoint: '/reports/by-entity' },
-    { id: 'dept', name: 'Records by Department', icon: Users, endpoint: '/reports/by-department' },
-    { id: 'year', name: 'Records by Year', icon: Calendar, endpoint: '/reports/by-year' },
-    { id: 'location', name: 'Records by Location', icon: MapPin, endpoint: '/reports/by-location' },
-    { id: 'compliance', name: 'Retention Compliance', icon: ShieldCheck, endpoint: '/reports/compliance' },
-    { id: 'upcoming', name: 'Upcoming Dispositions', icon: AlertTriangle, endpoint: '/reports/upcoming-dispositions' },
-    { id: 'user', name: 'Activity by User', icon: Users, endpoint: '/reports/user-activity' },
-    { id: 'holds', name: 'Legal Holds Active', icon: FileText, endpoint: '/reports/active-holds' },
-    { id: 'custom', name: 'Custom Report Builder', icon: Settings, endpoint: null },
-    { id: 'schedules', name: 'Export Schedules', icon: Clock, endpoint: '/schedules' },
-  ], [])
+    { id: 'entity', name: translate('Records by Entity'), icon: MapPin, endpoint: '/reports/by-entity' },
+    { id: 'dept', name: translate('Records by Department'), icon: Users, endpoint: '/reports/by-department' },
+    { id: 'year', name: translate('Records by Year'), icon: Calendar, endpoint: '/reports/by-year' },
+    { id: 'location', name: translate('Records by Location'), icon: MapPin, endpoint: '/reports/by-location' },
+    { id: 'compliance', name: translate('Retention Compliance'), icon: ShieldCheck, endpoint: '/reports/compliance' },
+    { id: 'upcoming', name: translate('Upcoming Dispositions'), icon: AlertTriangle, endpoint: '/reports/upcoming-dispositions' },
+    { id: 'user', name: translate('Activity by User'), icon: Users, endpoint: '/reports/user-activity' },
+    { id: 'holds', name: translate('Legal Holds Active'), icon: FileText, endpoint: '/reports/active-holds' },
+    { id: 'custom', name: translate('Custom Report Builder'), icon: Settings, endpoint: null },
+    { id: 'schedules', name: translate('Export Schedules'), icon: Clock, endpoint: '/schedules' },
+  ], [translate])
 
   const [schedules, setSchedules] = useState<ExportSchedule[]>([])
   const [showScheduleModal, setShowScheduleModal] = useState(false)
@@ -224,7 +227,7 @@ export default function Reports() {
               onClick={() => setShowScheduleModal(true)}
               className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-primary/90 transition-all"
             >
-              <Plus className="h-4 w-4" /> Create New Schedule
+              <Plus className="h-4 w-4" /> {translate('Create New Schedule')}
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -232,7 +235,7 @@ export default function Reports() {
               <div key={sch.id} className="bg-muted/20 border rounded-xl p-6 space-y-4 hover:border-primary/50 transition-colors group">
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
-                    <h4 className="font-black text-xs uppercase tracking-widest text-primary">{sch.report_type} Report</h4>
+                    <h4 className="font-black text-xs uppercase tracking-widest text-primary">{translate(sch.report_type)} {translate('Report')}</h4>
                     <p className="text-xl font-bold font-mono tracking-tighter">{sch.schedule_cron}</p>
                     <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 uppercase">
                       {sch.format}
@@ -262,7 +265,7 @@ export default function Reports() {
             {schedules.length === 0 && (
               <div className="col-span-full py-12 text-center bg-muted/10 border-2 border-dashed rounded-2xl">
                 <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-20" />
-                <p className="text-sm text-muted-foreground">No recurring exports scheduled yet.</p>
+                <p className="text-sm text-muted-foreground">{translate('No recurring exports scheduled yet.')}</p>
               </div>
             )}
           </div>
@@ -276,7 +279,7 @@ export default function Reports() {
           <div className="bg-muted/30 p-6 rounded-xl border border-dashed flex flex-col md:flex-row gap-6 items-start">
             <div className="flex-1 space-y-4 w-full">
               <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <TableIcon className="h-3 w-3" /> Select Columns
+                <TableIcon className="h-3 w-3" /> {translate('Select Columns')}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {ALL_COLUMNS.map(col => (
@@ -296,7 +299,7 @@ export default function Reports() {
                         : "bg-background text-muted-foreground border-input hover:border-primary/50"
                     )}
                   >
-                    {col.label}
+                    {translate(col.label)}
                   </button>
                 ))}
               </div>
@@ -308,7 +311,7 @@ export default function Reports() {
                 className="w-full bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-bold shadow-md hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                Run Report
+                {translate('Generate Report')}
               </button>
             </div>
           </div>
@@ -349,10 +352,10 @@ export default function Reports() {
           <table className="w-full text-sm text-left">
             <thead className="bg-muted/50 border-b font-bold">
               <tr>
-                <th className="px-6 py-4">Box Barcode</th>
-                <th className="px-6 py-4">File Barcode</th>
-                <th className="px-6 py-4">Due Date</th>
-                <th className="px-6 py-4">Entity</th>
+                <th className="px-6 py-4">{translate('Box Barcode')}</th>
+                <th className="px-6 py-4">{translate('File Barcode')}</th>
+                <th className="px-6 py-4">{translate('Due Date')}</th>
+                <th className="px-6 py-4">{translate('Entity')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -376,10 +379,10 @@ export default function Reports() {
           <table className="w-full text-sm text-left">
             <thead className="bg-muted/50 border-b font-bold">
               <tr>
-                <th className="px-6 py-4">Box Barcode</th>
-                <th className="px-6 py-4">File Barcode</th>
-                <th className="px-6 py-4">Hold Date</th>
-                <th className="px-6 py-4">Entity</th>
+                <th className="px-6 py-4">{translate('Box Barcode')}</th>
+                <th className="px-6 py-4">{translate('File Barcode')}</th>
+                <th className="px-6 py-4">{translate('Legal Hold Date')}</th>
+                <th className="px-6 py-4">{translate('Entity')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -439,8 +442,8 @@ export default function Reports() {
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Real-time inventory insights and compliance metrics.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('Analytics & Reports')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{translate('Generate insights and export data from your inventory system.')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -454,20 +457,20 @@ export default function Reports() {
             <div className="relative group">
               <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all">
                 <Download className="h-4 w-4" />
-                Export Report
+                {translate('Export Report')}
               </button>
               <div className="absolute right-0 top-full mt-2 w-40 bg-card border rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-20 overflow-hidden">
                 <button 
                   onClick={() => handleExport('csv')}
                   className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2"
                 >
-                  <FileText className="h-3 w-3" /> CSV Format
+                  <FileText className="h-3 w-3" /> {translate('Export CSV')}
                 </button>
                 <button 
                   onClick={() => handleExport('pdf')}
                   className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-muted transition-colors flex items-center gap-2 border-t"
                 >
-                  <AlertTriangle className="h-3 w-3 text-rose-500" /> PDF Document
+                  <AlertTriangle className="h-3 w-3 text-rose-500" /> {translate('Export PDF')}
                 </button>
               </div>
             </div>
@@ -521,7 +524,7 @@ export default function Reports() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
-                Schedule Recurring Export
+                {translate('Schedule Recurring Export')}
               </h3>
               <button onClick={() => setShowScheduleModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
@@ -530,31 +533,31 @@ export default function Reports() {
             
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Report Type</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Report Type')}</label>
                 <select 
                   value={newSchType} onChange={e => setNewSchType(e.target.value)}
                   className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
                 >
-                  <option value="records">Complete Inventory</option>
-                  <option value="audit">Audit Trails</option>
-                  <option value="compliance">Compliance Report</option>
+                  <option value="records">{translate('Complete Inventory')}</option>
+                  <option value="audit">{translate('Audit Trails')}</option>
+                  <option value="compliance">{translate('Compliance Report')}</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Format</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Format')}</label>
                   <select 
                     value={newSchFormat} onChange={e => setNewSchFormat(e.target.value)}
                     className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
                   >
-                    <option value="csv">CSV (Spreadsheet)</option>
-                    <option value="pdf">PDF (Document)</option>
-                    <option value="xlsx">Excel (XLSX)</option>
+                    <option value="csv">{translate('CSV (Spreadsheet)')}</option>
+                    <option value="pdf">{translate('PDF (Document)')}</option>
+                    <option value="xlsx">{translate('Excel (XLSX)')}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Schedule (Cron)</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Cron Expression')}</label>
                   <input 
                     type="text" value={newSchCron} onChange={e => setNewSchCron(e.target.value)}
                     className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
@@ -564,7 +567,7 @@ export default function Reports() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Recipients (Comma separated)</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Email Recipients')}</label>
                 <textarea 
                   value={newSchEmails} onChange={e => setNewSchEmails(e.target.value)}
                   className="w-full rounded-lg border bg-background px-4 py-2 text-sm min-h-[100px]"
@@ -576,7 +579,7 @@ export default function Reports() {
                 onClick={handleCreateSchedule}
                 className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-primary/90 transition-all"
               >
-                Create Automated Schedule
+                {translate('Create Schedule')}
               </button>
             </div>
           </div>

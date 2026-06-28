@@ -80,3 +80,20 @@ Allow users to run query searches like "financial reports" and receive records c
   `models/warehouse.py` — Full spatial hierarchy: `Warehouse → WarehouseZone → WarehouseAisle → WarehouseShelf → WarehouseBin`. Each bin optionally linked to an `inventory_record`.
 - [x] **Step 2: Layout Optimization Algorithm**
   `warehouse_service.py` — `recommend_bin()` scores empty bins using Euclidean distance to entry point + department clustering proximity weight. Returns ranked recommendations. Frontend at `/warehouse` shows the interactive layout tree + recommendation widget.
+
+---
+
+## Phase 4: Multi-Language Arabic Localization (Abu Dhabi support)
+
+### 4.1 Objective
+Translate UI controls, navigation sidebars, headers, stat metrics, charts, and database values (records metadata, locations, categories, tags) into Arabic, keeping standard LTR layout behavior intact.
+
+### 4.2 Implementation Checklist
+- [x] **Step 1: Zustand Language State Store**
+  `languageStore.ts` — Stores selected language, prevents page mirroring (forces `dir="ltr"` globally), and exposes translation hooks.
+- [x] **Step 2: Global Header Switcher**
+  `Navbar.tsx` — Dynamic locale switcher button placed in the top right navigation panel.
+- [x] **Step 3: UI & Database Records Translator**
+  `languageStore.ts` — Handles text mappings for UI, master tables metadata (entity, department, location, tags), and dynamic eastern Arabic numerals (e.g. `2025` -> `٢٠٢٥`).
+- [x] **Step 4: View Integrations**
+  `Records.tsx`, `RecordDetail.tsx`, `Dashboard.tsx`, `Sidebar.tsx` — Applied translation hook wrapper to dynamic fields and table/layout text.

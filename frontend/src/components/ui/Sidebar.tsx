@@ -13,40 +13,55 @@ import {
   Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguageStore } from '@/store/languageStore'
+
+type TranslationKeys = 
+  | 'dashboard'
+  | 'records'
+  | 'reports'
+  | 'import'
+  | 'auditLog'
+  | 'eDiscovery'
+  | 'warehouse'
+  | 'users'
+  | 'masterData'
+  | 'classification'
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Records', href: '/records', icon: Database },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
-  { name: 'Import', href: '/import', icon: Upload },
-  { name: 'Audit Log', href: '/audit', icon: ClipboardList },
-  { name: 'e-Discovery', href: '/ediscovery', icon: Scale },
-  { name: 'Warehouse', href: '/warehouse', icon: Warehouse },
-]
+  { key: 'dashboard', href: '/', icon: LayoutDashboard },
+  { key: 'records', href: '/records', icon: Database },
+  { key: 'reports', href: '/reports', icon: BarChart3 },
+  { key: 'import', href: '/import', icon: Upload },
+  { key: 'auditLog', href: '/audit', icon: ClipboardList },
+  { key: 'eDiscovery', href: '/ediscovery', icon: Scale },
+  { key: 'warehouse', href: '/warehouse', icon: Warehouse },
+] as const
 
 const adminItems = [
-  { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Master Data', href: '/admin/master', icon: Settings },
-  { name: 'Classification', href: '/admin/classification', icon: Tags },
-]
+  { key: 'users', href: '/admin/users', icon: Users },
+  { key: 'masterData', href: '/admin/master', icon: Settings },
+  { key: 'classification', href: '/admin/classification', icon: Tags },
+] as const
 
 export default function Sidebar() {
+  const { t } = useLanguageStore()
+
   return (
     <div className="flex h-full w-64 flex-col border-r bg-card text-card-foreground">
       <div className="flex h-16 items-center border-b px-6">
-        <ShieldCheck className="mr-2 h-6 w-6 text-primary" />
-        <span className="text-lg font-bold tracking-tight text-primary">SpiderSmart IMS</span>
+        <ShieldCheck className="me-2 h-6 w-6 text-primary" />
+        <span className="text-lg font-bold tracking-tight text-primary">{t('logoTitle')}</span>
       </div>
       
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
         <div>
           <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Main Navigation
+            {t('mainNavigation')}
           </h3>
           <nav className="space-y-1">
             {navItems.map((item) => (
               <NavLink
-                key={item.name}
+                key={item.key}
                 to={item.href}
                 className={({ isActive }) =>
                   cn(
@@ -57,8 +72,8 @@ export default function Sidebar() {
                   )
                 }
               >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.name}
+                <item.icon className="me-3 h-5 w-5" />
+                {t(item.key)}
               </NavLink>
             ))}
           </nav>
@@ -66,12 +81,12 @@ export default function Sidebar() {
 
         <div>
           <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Administration
+            {t('administration')}
           </h3>
           <nav className="space-y-1">
             {adminItems.map((item) => (
               <NavLink
-                key={item.name}
+                key={item.key}
                 to={item.href}
                 className={({ isActive }) =>
                   cn(
@@ -82,8 +97,8 @@ export default function Sidebar() {
                   )
                 }
               >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.name}
+                <item.icon className="me-3 h-5 w-5" />
+                {t(item.key as TranslationKeys)}
               </NavLink>
             ))}
           </nav>
@@ -91,7 +106,7 @@ export default function Sidebar() {
       </div>
       
       <div className="border-t p-4 text-xs text-muted-foreground text-center">
-        Spider Smart Solution © 2026
+        {t('copyright')}
       </div>
     </div>
   )

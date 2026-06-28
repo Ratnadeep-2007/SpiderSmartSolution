@@ -18,8 +18,10 @@ import {
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useLanguageStore } from '@/store/languageStore'
 
 export default function AdminMaster() {
+  const { translate } = useLanguageStore()
   const [activeTab, setActiveTab] = useState('entities')
   const [entityTypes, setEntityTypes] = useState<any[]>([])
   const [entities, setEntities] = useState<any[]>([])
@@ -302,8 +304,8 @@ export default function AdminMaster() {
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Master Data Management</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Configure Entities, Departments, and Record Type Schemas.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('Master Data Management')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{translate('Configure Entities, Departments, and Record Type Schemas.')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -311,7 +313,7 @@ export default function AdminMaster() {
             className="flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-muted/80 transition-all border"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {translate('Export CSV')}
           </button>
           {activeTab !== 'schemas' && (
             <button 
@@ -319,7 +321,7 @@ export default function AdminMaster() {
               className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all"
             >
               <Plus className="h-4 w-4" />
-              Add {getAddLabel()}
+              {translate('Add')} {translate(getAddLabel())}
             </button>
           )}
         </div>
@@ -342,7 +344,7 @@ export default function AdminMaster() {
             )}
           >
             <tab.icon className="inline-block mr-2 h-4 w-4" />
-            {tab.name}
+            {translate(tab.name)}
           </button>
         ))}
       </div>
@@ -356,7 +358,7 @@ export default function AdminMaster() {
           <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-4 border-r pr-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Record Types</h3>
+                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">{translate('Record Types')}</h3>
                 <button 
                   onClick={() => {
                     setSelectedItem(null)
@@ -366,7 +368,7 @@ export default function AdminMaster() {
                   className="p-1.5 bg-muted hover:bg-muted-foreground/10 border rounded-lg text-[10px] font-bold text-primary flex items-center gap-1 transition-colors"
                   title="Add Record Type"
                 >
-                  <Plus className="h-3 w-3" /> New Type
+                  <Plus className="h-3 w-3" /> {translate('New Type')}
                 </button>
               </div>
               <div className="space-y-2">
@@ -381,7 +383,7 @@ export default function AdminMaster() {
                   >
                     <div>
                       <div className="font-bold text-sm">{rt.name}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase">{rt.fields?.length || 0} Custom Fields</div>
+                      <div className="text-[10px] text-muted-foreground uppercase">{translate(String(rt.fields?.length || 0))} {translate('Custom Fields')}</div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -418,14 +420,14 @@ export default function AdminMaster() {
                 <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-bold">{selectedRt.name} Schema</h3>
-                      <p className="text-xs text-muted-foreground mt-1">Fields assigned to this record type definition.</p>
+                      <h3 className="text-xl font-bold">{selectedRt.name} {translate('Schema')}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">{translate('Fields assigned to this record type definition.')}</p>
                     </div>
                     <button 
                       onClick={() => setShowFieldModal(true)}
                       className="flex items-center gap-1.5 bg-muted hover:bg-muted-foreground/10 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add Field
+                      <Plus className="h-3.5 w-3.5" /> {translate('Add Field')}
                     </button>
                   </div>
 
@@ -439,7 +441,7 @@ export default function AdminMaster() {
                           <div>
                             <div className="font-bold text-sm flex items-center gap-2">
                               {f.label}
-                              {f.is_required && <span className="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded uppercase font-black">Required</span>}
+                              {f.is_required && <span className="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded uppercase font-black">{translate('Required')}</span>}
                             </div>
                             <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
                               <span>KEY: {f.name}</span>
@@ -463,7 +465,7 @@ export default function AdminMaster() {
                     {(!selectedRt.fields || selectedRt.fields.length === 0) && (
                       <div className="text-center py-12 border-2 border-dashed rounded-2xl">
                         <Layout className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground">No custom fields defined for this record type.</p>
+                        <p className="text-sm text-muted-foreground">{translate('No custom fields defined for this record type.')}</p>
                       </div>
                     )}
                   </div>
@@ -473,8 +475,8 @@ export default function AdminMaster() {
                   <div className="bg-muted p-4 rounded-full mb-4">
                     <Layout className="h-8 w-8" />
                   </div>
-                  <h3 className="font-bold">Select a Record Type</h3>
-                  <p className="text-xs max-w-[200px] mt-1 mx-auto">Pick a definition from the left to manage its metadata schema.</p>
+                  <h3 className="font-bold">{translate('Select a Record Type')}</h3>
+                  <p className="text-xs max-w-[200px] mt-1 mx-auto">{translate('Pick a definition from the left to manage its metadata schema.')}</p>
                 </div>
               )}
             </div>
@@ -484,16 +486,16 @@ export default function AdminMaster() {
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-muted/50 border-b font-bold text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-4">Name</th>
+                  <th className="px-6 py-4">{translate('Name')}</th>
                   {(activeTab === 'departments' || activeTab === 'categories' || activeTab === 'entities') && (
                     <th className="px-6 py-4">
-                      {activeTab === 'departments' ? 'Parent Entity' : 
-                       activeTab === 'categories' ? 'Parent Category' : 
-                       'Entity Type'}
+                      {activeTab === 'departments' ? translate('Parent Entity') : 
+                       activeTab === 'categories' ? translate('Parent Category') : 
+                       translate('Entity Type')}
                     </th>
                   )}
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4">{translate('Status')}</th>
+                  <th className="px-6 py-4 text-right">{translate('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -533,7 +535,7 @@ export default function AdminMaster() {
                     )}
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
-                        <CheckCircle2 className="h-3 w-3" /> Active
+                        <CheckCircle2 className="h-3 w-3" /> {translate('Active')}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -574,7 +576,7 @@ export default function AdminMaster() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card w-full max-w-md rounded-2xl border shadow-2xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold">Add New {getAddLabel()}</h3>
+              <h3 className="text-lg font-bold">{translate('Add New')} {translate(getAddLabel())}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
@@ -595,7 +597,7 @@ export default function AdminMaster() {
               {activeTab === 'entities' && (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-muted-foreground">Entity Code (2 Digits)</label>
+                    <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Entity Code (2 Digits)')}</label>
                     <input 
                       type="text" 
                       maxLength={2}
@@ -658,7 +660,7 @@ export default function AdminMaster() {
                   onClick={() => setShowAddModal(false)}
                   className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted"
                 >
-                  Cancel
+                  {translate('Cancel')}
                 </button>
                 <button 
                   onClick={handleAdd}
@@ -666,7 +668,7 @@ export default function AdminMaster() {
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Save Entry
+                  {translate('Save Entry')}
                 </button>
               </div>
             </div>
@@ -679,7 +681,7 @@ export default function AdminMaster() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card w-full max-w-md rounded-2xl border shadow-2xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold">Edit {getAddLabel()}</h3>
+              <h3 className="text-lg font-bold">{translate('Edit')} {translate(getAddLabel())}</h3>
               <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setNewItemName(''); }} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
@@ -763,7 +765,7 @@ export default function AdminMaster() {
                   onClick={() => { setShowEditModal(false); setSelectedItem(null); setNewItemName(''); }}
                   className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted"
                 >
-                  Cancel
+                  {translate('Cancel')}
                 </button>
                 <button 
                   onClick={handleEdit}
@@ -771,7 +773,7 @@ export default function AdminMaster() {
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Update Entry
+                  {translate('Update Entry')}
                 </button>
               </div>
             </div>
@@ -784,7 +786,7 @@ export default function AdminMaster() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card w-full max-w-md rounded-2xl border shadow-2xl p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold">Add Custom Field to {selectedRt.name}</h3>
+              <h3 className="text-lg font-bold">{translate('Add Custom Field to')} {selectedRt.name}</h3>
               <button onClick={() => setShowFieldModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
@@ -792,18 +794,18 @@ export default function AdminMaster() {
             
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Display Label</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Display Label')}</label>
                 <input 
                   type="text" 
                   value={newFieldLabel}
                   onChange={(e) => setNewFieldLabel(e.target.value)}
                   className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="e.g. Account Number"
+                  placeholder={translate('e.g. Account Number')}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Field Key (Permanent)</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Field Key (Permanent)')}</label>
                 <input 
                   type="text" 
                   value={newFieldName}
@@ -814,32 +816,32 @@ export default function AdminMaster() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground">Data Type</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Data Type')}</label>
                 <select 
                   value={newFieldType}
                   onChange={(e) => setNewFieldType(e.target.value)}
                   className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="text">Short Text</option>
-                  <option value="textarea">Paragraph</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date</option>
-                  <option value="boolean">Yes/No Toggle</option>
-                  <option value="enum">Dropdown (Select One)</option>
-                  <option value="user">User Picker</option>
-                  <option value="link">Web Link (URL)</option>
+                  <option value="text">{translate('Short Text')}</option>
+                  <option value="textarea">{translate('Paragraph')}</option>
+                  <option value="number">{translate('Number')}</option>
+                  <option value="date">{translate('Date')}</option>
+                  <option value="boolean">{translate('Yes/No Toggle')}</option>
+                  <option value="enum">{translate('Dropdown (Select One)')}</option>
+                  <option value="user">{translate('User Picker')}</option>
+                  <option value="link">{translate('Web Link (URL)')}</option>
                 </select>
               </div>
 
               {newFieldType === 'enum' && (
                 <div className="space-y-1.5 animate-in slide-in-from-top-1 duration-200">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Options (Comma separated)</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Options (Comma separated)')}</label>
                   <input 
                     type="text" 
                     value={newFieldOptions}
                     onChange={(e) => setNewFieldOptions(e.target.value)}
                     className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="e.g. High, Medium, Low"
+                    placeholder={translate('e.g. High, Medium, Low')}
                   />
                 </div>
               )}
@@ -852,7 +854,7 @@ export default function AdminMaster() {
                   onChange={(e) => setNewFieldRequired(e.target.checked)}
                   className="rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <label htmlFor="required" className="text-sm font-medium">Mandatory Field</label>
+                <label htmlFor="required" className="text-sm font-medium">{translate('Mandatory Field')}</label>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -860,14 +862,14 @@ export default function AdminMaster() {
                   onClick={() => setShowFieldModal(false)}
                   className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted"
                 >
-                  Cancel
+                  {translate('Cancel')}
                 </button>
                 <button 
                   onClick={handleAddField}
                   disabled={!newFieldName || !newFieldLabel}
                   className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 disabled:opacity-50"
                 >
-                  Add Field
+                  {translate('Add Field')}
                 </button>
               </div>
             </div>

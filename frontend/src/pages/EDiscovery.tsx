@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface Case {
   id: string
@@ -34,6 +35,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function EDiscovery() {
+  const { translate } = useLanguageStore()
   const [cases, setCases] = useState<Case[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
@@ -88,7 +90,7 @@ export default function EDiscovery() {
     setIsScanning(true)
     try {
       const res = await api.post(`/ediscovery/cases/${caseId}/scan-and-hold`)
-      toast.success(`Legal hold applied to ${res.data.matched_count} records`)
+      toast.success(`${translate('Legal hold applied to')} ${res.data.matched_count} ${translate('records')}`)
       fetchCases()
       if (activeCase?.id === caseId) {
         const updated = await api.get(`/ediscovery/cases/${caseId}`)
@@ -128,10 +130,10 @@ export default function EDiscovery() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             <Scale className="h-8 w-8 text-primary" />
-            e-Discovery Case Manager
+            {translate('e-Discovery Case Manager')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Initiate legal holds, scan for matching records, and generate forensic archives.
+            {translate('Initiate legal holds, scan for matching records, and generate forensic archives.')}
           </p>
         </div>
         <button
@@ -139,7 +141,7 @@ export default function EDiscovery() {
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 shadow-sm transition-all"
         >
           <Plus className="h-4 w-4" />
-          New Case
+          {translate('New Case')}
         </button>
       </div>
 
@@ -147,27 +149,27 @@ export default function EDiscovery() {
       {showForm && (
         <div className="bg-card border rounded-xl shadow-sm p-6 space-y-4 animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-lg">New e-Discovery Case</h2>
+            <h2 className="font-semibold text-lg">{translate('New e-Discovery Case')}</h2>
             <button onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase text-muted-foreground">Case Title *</label>
+              <label className="text-xs font-medium uppercase text-muted-foreground">{translate('Case Title *')}</label>
               <input
                 type="text"
-                placeholder="e.g. Q3 Finance Litigation Hold"
+                placeholder={translate('e.g. Q3 Finance Litigation Hold')}
                 value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase text-muted-foreground">Description</label>
+              <label className="text-xs font-medium uppercase text-muted-foreground">{translate('Case Description')}</label>
               <input
                 type="text"
-                placeholder="Brief case description..."
+                placeholder={translate('Brief case description...')}
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
@@ -176,17 +178,17 @@ export default function EDiscovery() {
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium uppercase text-muted-foreground">
-              Search Keywords * <span className="normal-case font-normal text-muted-foreground">(comma-separated)</span>
+              {translate('Search Keywords *')} <span className="normal-case font-normal text-muted-foreground">{translate('(comma-separated)')}</span>
             </label>
             <input
               type="text"
-              placeholder="e.g. invoice, tax filing, financial report, Q3 2023"
+              placeholder={translate('e.g. invoice, tax filing, financial report, Q3 2023')}
               value={form.keywords}
               onChange={e => setForm({ ...form, keywords: e.target.value })}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
             />
             <p className="text-xs text-muted-foreground">
-              Records matching any of these keywords in description, entity, or department will be flagged.
+              {translate('Records matching any of these keywords in description, entity, or department will be flagged.')}
             </p>
           </div>
           <div className="flex gap-3 pt-2">
@@ -196,13 +198,13 @@ export default function EDiscovery() {
               className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
             >
               {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Create Case
+              {translate('Create Case')}
             </button>
             <button
               onClick={() => setShowForm(false)}
               className="px-5 py-2 border rounded-lg text-sm font-medium hover:bg-accent"
             >
-              Cancel
+              {translate('Cancel')}
             </button>
           </div>
         </div>
@@ -212,7 +214,7 @@ export default function EDiscovery() {
         {/* Cases List */}
         <div className="lg:col-span-1 space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Cases ({cases.length})
+            {translate('Cases')} ({cases.length})
           </h3>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -221,7 +223,7 @@ export default function EDiscovery() {
           ) : cases.length === 0 ? (
             <div className="text-center py-12 bg-card border rounded-xl">
               <Scale className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No cases yet.</p>
+              <p className="text-sm text-muted-foreground">{translate('No cases yet.')}</p>
             </div>
           ) : (
             cases.map(c => (
@@ -239,7 +241,7 @@ export default function EDiscovery() {
                     'shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full',
                     statusColors[c.status] || 'bg-gray-100 text-gray-600'
                   )}>
-                    {c.status.replace('_', ' ')}
+                    {translate(c.status.replace('_', ' '))}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -253,7 +255,7 @@ export default function EDiscovery() {
                   )}
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span>{c.matched_record_ids.length} records matched</span>
+                  <span>{translate(String(c.matched_record_ids.length))} {translate('records matched')}</span>
                   <ChevronRight className="h-3 w-3" />
                 </div>
               </button>
@@ -266,7 +268,7 @@ export default function EDiscovery() {
           {!activeCase ? (
             <div className="flex flex-col items-center justify-center h-full min-h-64 bg-card border rounded-xl border-dashed text-muted-foreground">
               <Scale className="h-10 w-10 mb-3 opacity-20" />
-              <p className="text-sm">Select a case to view details</p>
+              <p className="text-sm">{translate('Select a case to view details')}</p>
             </div>
           ) : (
             <div className="bg-card border rounded-xl shadow-sm overflow-hidden animate-in fade-in">
@@ -274,14 +276,14 @@ export default function EDiscovery() {
                 <div>
                   <h2 className="font-bold text-lg">{activeCase.title}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Case ID: {activeCase.id.slice(0, 8)}... · Created {new Date(activeCase.created_at).toLocaleDateString()}
+                    {translate('Case ID:')} {activeCase.id.slice(0, 8)}... · {translate('Created')} {new Date(activeCase.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <span className={cn(
                   'text-xs font-bold uppercase px-3 py-1 rounded-full',
                   statusColors[activeCase.status] || 'bg-gray-100 text-gray-600'
                 )}>
-                  {activeCase.status.replace('_', ' ')}
+                  {translate(activeCase.status.replace('_', ' '))}
                 </span>
               </div>
 
@@ -292,7 +294,7 @@ export default function EDiscovery() {
 
                 {/* Keywords */}
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Search Keywords</h4>
+                  <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">{translate('Search Keywords')}</h4>
                   <div className="flex flex-wrap gap-2">
                     {activeCase.query_keywords.map(k => (
                       <span key={k} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs font-medium">
@@ -306,15 +308,15 @@ export default function EDiscovery() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-muted/30 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-black">{activeCase.query_keywords.length}</div>
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground mt-1">Keywords</div>
+                    <div className="text-2xl font-black">{translate(String(activeCase.query_keywords.length))}</div>
+                    <div className="text-[10px] uppercase font-bold text-muted-foreground mt-1">{translate('Keywords')}</div>
                   </div>
                   <div className={cn(
                     "rounded-lg p-4 text-center",
                     activeCase.matched_record_ids.length > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"
                   )}>
-                    <div className="text-2xl font-black">{activeCase.matched_record_ids.length}</div>
-                    <div className="text-[10px] uppercase font-bold mt-1 opacity-70">Records Held</div>
+                    <div className="text-2xl font-black">{translate(String(activeCase.matched_record_ids.length))}</div>
+                    <div className="text-[10px] uppercase font-bold mt-1 opacity-70">{translate('Records Held')}</div>
                   </div>
                   <div className={cn(
                     "rounded-lg p-4 text-center",
@@ -325,7 +327,7 @@ export default function EDiscovery() {
                       : <AlertCircle className="h-6 w-6 mx-auto text-muted-foreground/40" />
                     }
                     <div className="text-[10px] uppercase font-bold mt-1 opacity-70">
-                      {activeCase.hold_applied ? 'Hold Active' : 'No Hold'}
+                      {activeCase.hold_applied ? translate('Hold Active') : translate('No Hold')}
                     </div>
                   </div>
                 </div>
@@ -338,7 +340,7 @@ export default function EDiscovery() {
                     className="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-bold disabled:opacity-50 transition-colors"
                   >
                     {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                    {activeCase.hold_applied ? 'Hold Already Applied' : 'Scan & Apply Legal Hold'}
+                    {activeCase.hold_applied ? translate('Hold Already Applied') : translate('Scan & Apply Legal Hold')}
                   </button>
 
                   <button
@@ -347,13 +349,13 @@ export default function EDiscovery() {
                     className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors"
                   >
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    Export Forensic ZIP
+                    {translate('Export Forensic ZIP')}
                   </button>
                 </div>
 
                 {!activeCase.hold_applied && (
                   <p className="text-xs text-muted-foreground text-center">
-                    Run "Scan & Apply Legal Hold" first to lock matching records, then export the forensic archive.
+                    {translate('Run "Scan & Apply Legal Hold" first to lock matching records, then export the forensic archive.')}
                   </p>
                 )}
               </div>

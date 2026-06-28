@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Download, Plus, FolderTree, Workflow, ChevronDown, ChevronRight, Trash2, Loader2, X, AlertCircle, Sparkles } from 'lucide-react'
+import { useLanguageStore } from '@/store/languageStore'
 
 interface Category {
   id: string
@@ -27,6 +28,7 @@ interface Rule {
 }
 
 export default function AdminClassification() {
+  const { translate } = useLanguageStore()
   const [activeTab, setActiveTab] = useState('categories')
   const [categories, setCategories] = useState<Category[]>([])
   const [rules, setRules] = useState<Rule[]>([])
@@ -225,8 +227,8 @@ export default function AdminClassification() {
     <div className="p-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Classification & Tags</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Manage category taxonomy and auto-classification logic.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{translate('Classification & Tags')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{translate('Manage category taxonomy and auto-classification logic.')}</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -234,14 +236,14 @@ export default function AdminClassification() {
             className="flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-muted/80 transition-all border"
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {translate('Export CSV')}
           </button>
           <button 
             onClick={() => openModal()}
             className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm hover:bg-primary/90 transition-all"
           >
             <Plus className="h-4 w-4" />
-            Add {activeTab === 'categories' ? 'Category' : 'Rule'}
+            {translate('Add')} {activeTab === 'categories' ? translate('Category') : translate('Rule')}
           </button>
         </div>
       </div>
@@ -255,7 +257,7 @@ export default function AdminClassification() {
           )}
         >
           <FolderTree className="inline-block mr-2 h-4 w-4" />
-          Taxonomy Tree
+          {translate('Taxonomy Tree')}
         </button>
         <button 
           onClick={() => {
@@ -268,7 +270,7 @@ export default function AdminClassification() {
           )}
         >
           <Workflow className="inline-block mr-2 h-4 w-4" />
-          Auto-Classification Rules
+          {translate('Auto-Classification Rules')}
         </button>
       </div>
 
@@ -276,7 +278,7 @@ export default function AdminClassification() {
         <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
           <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider mr-2">
             <Sparkles className="h-4 w-4" />
-            Discovery
+            {translate('Discovery')}
           </div>
           {discoveries.map((disc, idx) => (
             <button 
@@ -330,11 +332,11 @@ export default function AdminClassification() {
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-muted/50 border-b font-bold text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-4">Rule Name</th>
-                  <th className="px-6 py-4">Condition</th>
-                  <th className="px-6 py-4">Action</th>
-                  <th className="px-6 py-4 text-center">Priority</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4">{translate('Rule Name')}</th>
+                  <th className="px-6 py-4">{translate('Condition')}</th>
+                  <th className="px-6 py-4">{translate('Action')}</th>
+                  <th className="px-6 py-4 text-center">{translate('Priority')}</th>
+                  <th className="px-6 py-4 text-right">{translate('Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -342,7 +344,7 @@ export default function AdminClassification() {
                   <tr key={rule.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold">{rule.name}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Active</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest">{translate('Active')}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-xs">
@@ -387,7 +389,7 @@ export default function AdminClassification() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 {activeTab === 'categories' ? <FolderTree className="h-5 w-5 text-primary" /> : <Workflow className="h-5 w-5 text-primary" />}
-                {activeTab === 'categories' ? (catParentId ? 'Add Sub-category' : 'Add New Category') : 'Add Auto-Classification Rule'}
+                {activeTab === 'categories' ? (catParentId ? translate('Add Sub-category') : translate('Add New Category')) : translate('Add Auto-Classification Rule')}
               </h3>
               <button onClick={resetForms} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
@@ -397,61 +399,61 @@ export default function AdminClassification() {
             {activeTab === 'categories' ? (
               <form onSubmit={handleAddCategory} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Category Name</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Category Name')}</label>
                   <input 
                     type="text" required autoFocus
                     value={catName}
                     onChange={(e) => setCatName(e.target.value)}
                     className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="e.g. Legal Documents"
+                    placeholder={translate('e.g. Legal Documents')}
                   />
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm hover:bg-primary/90 transition-all">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Category"}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : translate('Save Category')}
                 </button>
               </form>
             ) : (
               <form onSubmit={handleAddRule} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Rule Name</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Rule Name')}</label>
                   <input 
                     type="text" required
                     value={ruleName}
                     onChange={(e) => setRuleName(e.target.value)}
                     className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="e.g. Identify Invoices"
+                    placeholder={translate('e.g. Identify Invoices')}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-muted-foreground">Field</label>
+                    <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Field')}</label>
                     <select value={ruleField} onChange={e => setRuleField(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
-                      <option value="description">Description</option>
-                      <option value="entity">Entity</option>
-                      <option value="department">Department</option>
-                      <option value="location">Location</option>
+                      <option value="description">{translate('Description')}</option>
+                      <option value="entity">{translate('Entity')}</option>
+                      <option value="department">{translate('Department')}</option>
+                      <option value="location">{translate('Location')}</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-muted-foreground">Operator</label>
+                    <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Operator')}</label>
                     <select value={ruleOp} onChange={e => setRuleOperator(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
-                      <option value="contains">Contains</option>
-                      <option value="equals">Equals</option>
-                      <option value="starts_with">Starts With</option>
-                      <option value="ends_with">Ends With</option>
+                      <option value="contains">{translate('Contains')}</option>
+                      <option value="equals">{translate('Equals')}</option>
+                      <option value="starts_with">{translate('Starts With')}</option>
+                      <option value="ends_with">{translate('Ends With')}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Value to match</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Value to match')}</label>
                   <input 
                     type="text" required
                     value={ruleVal}
                     onChange={(e) => setRuleValue(e.target.value)}
                     className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="e.g. INVOICE"
+                    placeholder={translate('e.g. INVOICE')}
                   />
                 </div>
 
@@ -460,9 +462,9 @@ export default function AdminClassification() {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase text-primary flex items-center gap-1">
                         <Sparkles className="h-3 w-3" />
-                        Simulation Impact
+                        {translate('Simulation Impact')}
                       </span>
-                      <span className="text-xs font-bold text-primary">{simulation.total_count} records affected</span>
+                      <span className="text-xs font-bold text-primary">{translate(String(simulation.total_count))} {translate('records affected')}</span>
                     </div>
                     {simulation.sample_records.length > 0 && (
                       <div className="space-y-1">
@@ -479,14 +481,14 @@ export default function AdminClassification() {
                 <div className="border-t pt-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase text-primary">Action</label>
+                      <label className="text-xs font-bold uppercase text-primary">{translate('Action')}</label>
                       <select value={ruleActionType} onChange={e => setRuleActionType(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
-                        <option value="SET_CATEGORY">Set Category</option>
-                        <option value="ADD_TAGS">Add Tags</option>
+                        <option value="SET_CATEGORY">{translate('Set Category')}</option>
+                        <option value="ADD_TAGS">{translate('Add Tags')}</option>
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase text-muted-foreground">Priority</label>
+                      <label className="text-xs font-bold uppercase text-muted-foreground">{translate('Priority')}</label>
                       <input 
                         type="number" value={rulePriority} onChange={e => setRulePriority(parseInt(e.target.value))}
                         className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
@@ -495,17 +497,17 @@ export default function AdminClassification() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-primary">Resulting Value</label>
+                    <label className="text-xs font-bold uppercase text-primary">{translate('Resulting Value')}</label>
                     {ruleActionType === 'SET_CATEGORY' ? (
                       <select required value={ruleActionVal} onChange={e => setRuleActionValue(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
-                        <option value="">Select Category...</option>
+                        <option value="">{translate('Select Category...')}</option>
                         {categories.flatMap(c => [c, ...(c.children || [])]).map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>
                     ) : (
                       <input 
-                        type="text" required placeholder="e.g. urgent, finance"
+                        type="text" required placeholder={translate('e.g. urgent, finance')}
                         value={ruleActionVal} onChange={e => setRuleActionValue(e.target.value)}
                         className="w-full rounded-lg border bg-background px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -520,13 +522,13 @@ export default function AdminClassification() {
                       className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     <label htmlFor="retroactive" className="text-xs font-medium text-foreground cursor-pointer select-none">
-                      Apply retroactively to existing records
+                      {translate('Apply retroactively to existing records')}
                     </label>
                   </div>
                 </div>
 
                 <button type="submit" disabled={isSubmitting} className="w-full bg-primary text-primary-foreground py-2 mt-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm hover:bg-primary/90 transition-all">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Rule"}
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : translate('Create Rule')}
                 </button>
               </form>
             )}
@@ -537,9 +539,9 @@ export default function AdminClassification() {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex gap-4">
         <AlertCircle className="h-6 w-6 text-amber-600 shrink-0" />
         <div>
-          <h4 className="text-amber-800 font-bold text-sm">Pro Tip: Auto-Classification</h4>
+          <h4 className="text-amber-800 font-bold text-sm">{translate('Pro Tip: Auto-Classification')}</h4>
           <p className="text-amber-700 text-xs mt-1 leading-relaxed">
-            Rules are processed instantly when a record is created or updated. High priority rules (larger numbers) are evaluated first. If multiple rules apply, their actions are cumulative.
+            {translate('Rules are processed instantly when a record is created or updated. High priority rules (larger numbers) are evaluated first. If multiple rules apply, their actions are cumulative.')}
           </p>
         </div>
       </div>

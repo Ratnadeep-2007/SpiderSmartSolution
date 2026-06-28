@@ -29,8 +29,9 @@ The following matrix lists all functional requirements, security mechanisms, com
 | **Digital Compliance Officer Agent**| Agentic Workflow| Automated cron agent scanning database, sending JWT sign-off manifests, and deleting records. | **[DONE]** | `dco_service.py`, `routers/dco.py`, `scheduler.py` |
 | **e-Discovery Case Investigator**| Agentic Workflow| Gathers litigation records, tags legal holds, and exports cryptographic ZIP package. | **[DONE]** | `ediscovery_service.py`, `routers/ediscovery.py`, `EDiscovery.tsx` |
 | **Data Harmonization Agent** | Agentic Workflow| Cleans bulk uploads, corrects typos, flags schema anomalies, and suggests standard categories. | **[DONE]** | `harmonization_service.py`, `routers/harmonization.py`, `Import.tsx` |
-| **Warehouse Layout Mapping** | Structural | Aisle, rack, and shelf structural layout mapping algorithms. | **[DONE]** | `models/warehouse.py`, `warehouse_service.py`, `routers/warehouse.py`, `Warehouse.tsx` |
+| **Warehouse Layout Mapping** | Structural | Aisle, rack, and shelf structural layout mapping algorithms with seeded layout database tables. | **[DONE]** | `models/warehouse.py`, `warehouse_service.py`, `routers/warehouse.py`, `Warehouse.tsx`, `init_db.sql` |
 | **Pre-Disposition Approvals** | Compliance | Multi-stage manager sign-off workflows before record destruction. | **[DONE]** | `dco_service.py` (HMAC-signed approval tokens + `/dco/approve` callback) |
+| **Language & Localization (Arabic)** | UI / UX | Left-to-Right layout Arabic translation engine for UI labels, numerals, and database records. | **[DONE]** | `languageStore.ts`, `Navbar.tsx`, `Sidebar.tsx`, `Records.tsx`, `RecordDetail.tsx`, `Dashboard.tsx` |
 
 ---
 
@@ -40,6 +41,7 @@ The following matrix lists all functional requirements, security mechanisms, com
 * **Generated TSVECTOR:** PostgreSQL generated columns dynamically compute search vectors from cached strings. A GIN index over `search_vector` ensures text search runs in sub-millisecond durations.
 * **JWT Guest Restriction:** External guests receive limited JWTs carrying `scoped_filters` (e.g., entity limitations). FastAPI dependency injects these filters directly into SQLAlchemy query constructs.
 * **Fail-Safe Assistant Routing:** Strict response timers (`12s` on Nvidia, `10s` on Gemini) trigger quick fallbacks. If both providers time out or return errors, the app defaults to the offline local regex engine.
+* **LTR Arabic Translation Engine:** To keep layout alignment consistent without panel mirroring (RTL flips), document direction is forced to `ltr` globally. Text translations and Eastern Arabic numerals are rendered dynamically on the client using a mapped dictionary translation hook (`translate` in `languageStore.ts`).
 
 ---
 
