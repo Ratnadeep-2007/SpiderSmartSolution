@@ -8,9 +8,9 @@ This guide contains the comprehensive, step-by-step instructions to deploy your 
 * [x] **Prerequisites**: Done.
 * [x] **Step 1: Save & Commit Local Configurations**: Completed.
 * [x] **Step 2: Deploy Frontend on Vercel**: Completed! Vercel project created and deployed.
-* [ ] **Step 3: Point Domain in Tasjeel.ae (DNS Settings)**: **In Progress** 🚀 (Currently configuring records in Tasjeel).
-* [ ] **Step 4: Bind Custom Domain in Vercel**: Pending DNS propagation.
-* [ ] **Step 5: Verify Backend & Environment Variables (cPanel)**: Pending final test.
+* [x] **Step 3: Point Domain in Tasjeel.ae (DNS Settings)**: Completed! Records configured in Tasjeel.
+* [ ] **Step 4: Bind Custom Domain in Vercel**: **In Progress** 🚀 (Waiting for global DNS propagation & binding in Vercel dashboard).
+* [x] **Step 5: Verify Backend & Environment Variables (cPanel)**: Completed! Backend is healthy and online at `https://sspowertech.net/health`.
 
 ---
 
@@ -138,7 +138,7 @@ You must configure the DNS settings on Tasjeel.ae so the domain redirects reques
 2. **WWW CNAME Record**:
    * **Name/Host**: `www`
    * **Type**: `CNAME`
-   * **Value/Destination**: `cname.vercel-dns.com.`
+   * **Value/Destination**: `cname.vercel-dns.com`
    * **TTL**: `3600`
 
 #### If you deployed on Netlify:
@@ -150,7 +150,7 @@ You must configure the DNS settings on Tasjeel.ae so the domain redirects reques
 2. **WWW CNAME Record**:
    * **Name/Host**: `www`
    * **Type**: `CNAME`
-   * **Value/Destination**: `your-netlify-subdomain.netlify.app.` (replace with your actual netlify URL)
+   * **Value/Destination**: `your-netlify-subdomain.netlify.app` (replace with your actual netlify URL)
    * **TTL**: `3600`
 
 5. Save the DNS changes. 
