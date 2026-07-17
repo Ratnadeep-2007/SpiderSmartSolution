@@ -13,6 +13,8 @@ class CopilotChatResponse(BaseModel):
     response: str
     actions_suggested: Optional[List[Dict[str, Any]]] = []
     pending_action: Optional[Dict[str, Any]] = None
+    records: Optional[List[Dict[str, Any]]] = None
+    audit_logs: Optional[List[Dict[str, Any]]] = None
 
 class CopilotExecuteRequest(BaseModel):
     action: str
@@ -28,3 +30,4 @@ class CopilotExecuteRequest(BaseModel):
     department: Optional[str] = None
     location: Optional[str] = None
     location_name: Optional[str] = None
+    version: Optional[int] = None

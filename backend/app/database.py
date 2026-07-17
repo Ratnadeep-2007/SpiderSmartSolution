@@ -1,13 +1,16 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 from .config import settings
 
-# Create async engine
+# Create async engine with NullPool to prevent event loop mismatch errors in Passenger
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=True,  # Set to False in production
-    future=True
+    echo=False,  # Set to False in production to avoid cluttering cPanel logs
+    future=True,
+    poolclass=NullPool
 )
+
 
 # Create session factory
 AsyncSessionLocal = async_sessionmaker(

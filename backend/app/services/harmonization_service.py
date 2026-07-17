@@ -7,6 +7,7 @@ Uses LLM (Gemini) to clean and standardize bulk import data:
 - Standardizes casing and whitespace
 - Returns a diff for user review before committing to database
 """
+import os
 import json
 import logging
 import httpx
@@ -38,7 +39,7 @@ async def harmonize_with_llm(
     Send rows to Gemini for harmonization. Returns corrected rows.
     Falls back to rule-based harmonization if LLM unavailable.
     """
-    gemini_key = settings.GEMINI_API_KEY
+    gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     if not gemini_key:
         return None
 
@@ -56,30 +57,32 @@ For each row:
 3. Fix obvious date format issues in "record_date" to YYYY-MM-DD format
 4. Fix capitalization inconsistencies in text fields
 
-Return ONLY a valid JSON array of the corrected rows. No explanation text.
+Return a valid JSON array of the corrected rows.
 """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096}
-    }
+    # Use model cascade fallback starting with gemini-2.5-pro to ensure service liveness
+    for model_name in ["gemini-2.5-pro", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-1.5-flash"]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.1, 
+                "maxOutputTokens": 4096,
+                "responseMimeType": "application/json"
+            }
+        }
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, json=payload)
-        if resp.status_code == 200:
-            data = resp.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            # Strip markdown code blocks if present
-            text = text.strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-            return json.loads(text.strip())
-    except Exception as e:
-        logger.error(f"LLM harmonization failed: {e}")
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                return json.loads(text.strip())
+            else:
+                logger.warning(f"LLM harmonization with {model_name} failed: Status {resp.status_code}, Response: {resp.text}")
+        except Exception as e:
+            logger.error(f"LLM harmonization failed for model {model_name}: {e}")
 
     return None
 

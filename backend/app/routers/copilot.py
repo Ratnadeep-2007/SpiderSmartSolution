@@ -28,16 +28,243 @@ router = APIRouter(prefix="/copilot", tags=["copilot"])
 
 def clean_response(text: str | None) -> str:
     """
-    Removes markdown asterisks from AI response text so the UI shows plain text.
-    Some providers (e.g. Gemini) use * or ** for bold/italic, which looks noisy
-    in the chat interface.
+    Trims whitespace from AI response text.
     """
     if not text:
         return ""
-    return text.replace("*", "").strip()
+    return text.strip()
+
+GEMINI_FUNCTIONS = [
+    {
+        "name": "search_records",
+        "description": "Searches for physical inventory records matching a keyword query.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {"type": "STRING", "description": "The search term or keywords (e.g. invoice, medical)."},
+                "limit": {"type": "INTEGER", "description": "Maximum number of records to return (default 5)."}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "get_record_details",
+        "description": "Retrieves complete metadata and status details for a single record by its barcode.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box_barcode or file_barcode."}
+            },
+            "required": ["barcode"]
+        }
+    },
+    {
+        "name": "query_audit_logs",
+        "description": "Queries the system audit log history. Can filter to a specific record barcode.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "Optional barcode to filter logs by record."},
+                "limit": {"type": "INTEGER", "description": "Maximum number of log entries to retrieve (default 10)."}
+            }
+        }
+    },
+    {
+        "name": "list_categories",
+        "description": "Retrieves the list of all categories defined in the master data.",
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
+        "name": "list_locations",
+        "description": "Retrieves the list of active warehouse locations.",
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
+        "name": "list_departments",
+        "description": "Retrieves the list of active departments.",
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
+        "name": "apply_legal_hold",
+        "description": "Applies a legal hold to a record by barcode, blocking deletion/modification.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."},
+                "reason": {"type": "STRING", "description": "The legal or audit reason for the hold."}
+            },
+            "required": ["barcode", "reason"]
+        }
+    },
+    {
+        "name": "remove_legal_hold",
+        "description": "Removes a legal hold from a record by barcode, resuming standard retention.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."},
+                "reason": {"type": "STRING", "description": "The reason for lifting the hold."}
+            },
+            "required": ["barcode", "reason"]
+        }
+    },
+    {
+        "name": "set_category",
+        "description": "Assigns a category to a record by barcode.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."},
+                "category_name": {"type": "STRING", "description": "Name of the category to assign."}
+            },
+            "required": ["barcode", "category_name"]
+        }
+    },
+    {
+        "name": "add_tag",
+        "description": "Appends a new tag to a record by barcode.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."},
+                "tag_name": {"type": "STRING", "description": "The tag text to add."}
+            },
+            "required": ["barcode", "tag_name"]
+        }
+    },
+    {
+        "name": "create_record",
+        "description": "Creates a new physical inventory record in the system.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "box_barcode": {"type": "STRING", "description": "Unique Box Barcode."},
+                "file_barcode": {"type": "STRING", "description": "Unique File Barcode."},
+                "description": {"type": "STRING", "description": "Detailed description of contents."},
+                "record_date": {"type": "STRING", "description": "Date of record creation (YYYY-MM-DD)."},
+                "entity": {"type": "STRING", "description": "Optional Entity name (defaults to Spider Smart)."},
+                "department": {"type": "STRING", "description": "Optional Department name (defaults to Finance)."},
+                "location": {"type": "STRING", "description": "Optional Location name (defaults to Warehouse A)."}
+            },
+            "required": ["box_barcode", "file_barcode", "description", "record_date"]
+        }
+    },
+    {
+        "name": "edit_record",
+        "description": "Edits metadata description, entity, department, or location of an existing record.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The target box or file barcode."},
+                "description": {"type": "STRING", "description": "New description text."},
+                "entity": {"type": "STRING", "description": "New entity name."},
+                "department": {"type": "STRING", "description": "New department name."},
+                "location": {"type": "STRING", "description": "New location name."}
+            },
+            "required": ["barcode"]
+        }
+    },
+    {
+        "name": "dispose_record",
+        "description": "Disposes a record that is currently marked as DUE.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."}
+            },
+            "required": ["barcode"]
+        }
+    },
+    {
+        "name": "create_location",
+        "description": "Creates a new active warehouse storage location.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "location_name": {"type": "STRING", "description": "Name of the location."}
+            },
+            "required": ["location_name"]
+        }
+    },
+    {
+        "name": "create_category",
+        "description": "Creates a new record classification category.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "category_name": {"type": "STRING", "description": "Name of the category."}
+            },
+            "required": ["category_name"]
+        }
+    },
+    {
+        "name": "trigger_retention_sweep",
+        "description": "Manually triggers the system retention sweep to flag expired records as DUE.",
+        "parameters": {"type": "OBJECT", "properties": {}}
+    },
+    {
+        "name": "list_record_versions",
+        "description": "Lists the previous version snapshots and change history of a record by barcode.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."}
+            },
+            "required": ["barcode"]
+        }
+    },
+    {
+        "name": "revert_record_version",
+        "description": "Reverts a record back to a specific past version snapshot. Note: requires SYSTEM_ADMIN approval.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "barcode": {"type": "STRING", "description": "The box or file barcode."},
+                "version": {"type": "INTEGER", "description": "The target version number to revert to."}
+            },
+            "required": ["barcode", "version"]
+        }
+    }
+]
 
 # Helper functions for AI Copilot Read Tools
 async def search_records_tool(db: AsyncSession, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    # Attempt Semantic Search first using Gemini Embeddings
+    from ..services.embedding_service import get_embedding
+    try:
+        query_emb = await get_embedding(query)
+        if query_emb:
+            stmt = (
+                select(InventoryRecord)
+                .where(
+                    InventoryRecord.is_active == True,
+                    InventoryRecord.embedding != None
+                )
+                .order_by(InventoryRecord.embedding.cosine_distance(query_emb).asc())
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            records = result.scalars().all()
+            if records:
+                return [
+                    {
+                        "id": str(r.id),
+                        "box_barcode": r.box_barcode,
+                        "file_barcode": r.file_barcode,
+                        "description": r.description,
+                        "entity": r.entity,
+                        "department": r.department,
+                        "location": r.location,
+                        "disposition_status": r.disposition_status,
+                        "legal_hold": r.legal_hold,
+                        "tags": r.tags
+                    }
+                    for r in records
+                ]
+    except Exception as sem_err:
+        logger.error(f"Semantic search in copilot failed, falling back to pattern matching: {str(sem_err)}")
+
+    # Fallback to pattern matching
     stmt = (
         select(InventoryRecord)
         .where(
@@ -67,6 +294,28 @@ async def search_records_tool(db: AsyncSession, query: str, limit: int = 5) -> L
             "tags": r.tags
         }
         for r in records
+    ]
+
+async def list_record_versions_tool(db: AsyncSession, barcode: str) -> List[Dict[str, Any]]:
+    stmt = select(InventoryRecord).where(
+        (InventoryRecord.box_barcode == barcode) |
+        (InventoryRecord.file_barcode == barcode)
+    )
+    result = await db.execute(stmt)
+    record = result.scalar_one_or_none()
+    if not record:
+        return [{"error": f"Record with barcode '{barcode}' not found."}]
+        
+    from ..services.record_service import get_record_versions
+    versions = await get_record_versions(db, record.id)
+    return [
+        {
+            "version": v.version,
+            "created_at": str(v.created_at),
+            "created_by": str(v.created_by),
+            "data_snapshot": v.data_snapshot
+        }
+        for v in versions
     ]
 
 async def get_record_details_tool(db: AsyncSession, barcode: str) -> Dict[str, Any]:
@@ -478,6 +727,23 @@ async def run_tool_action(db: AsyncSession, action_data: Dict[str, Any], user_id
         count = await sweep_retention_dates(db)
         return f"Success: Triggered retention sweep. Marked {count} records as DUE."
         
+    elif action == "revert_record_version":
+        if not record:
+            return f"Error: Barcode '{barcode}' not found."
+        version_num = action_data.get("version")
+        if version_num is None:
+            return "Error: Missing version number."
+        try:
+            version_num = int(version_num)
+        except ValueError:
+            return "Error: Version number must be an integer."
+            
+        from ..services.record_service import revert_to_version
+        reverted_record = await revert_to_version(db, record.id, version_num, user_id)
+        if not reverted_record:
+            return f"Error: Version '{version_num}' not found for record '{barcode}' or user lacks permissions."
+        return f"Success: Reverted record '{barcode}' to version {version_num} snapshot."
+        
     return f"Error: Unknown action '{action}'."
 
 @router.post("/chat", response_model=CopilotChatResponse)
@@ -504,26 +770,34 @@ async def chat_with_copilot(
     
     # Gather comprehensive platform documentation
     platform_docs = get_platform_docs_comprehensive()
-    
-    system_prompt = (
+
+    # --- Gemini-specific system prompt (clean: no conflicting JSON-block instructions) ---
+    # The Gemini API already knows about tools via functionDeclarations.
+    # Adding raw JSON instructions alongside native function calling confuses the model.
+    gemini_system_prompt = (
+        "You are the SpiderSmart IMS Copilot, an expert AI assistant for a physical Inventory Management System.\n"
+        f"Current user: {current_user.email} (Role: {current_user.role})\n\n"
+        "=== LIVE DATABASE SNAPSHOT ===\n"
+        f"- Active records: {context['total_records']} | Records on legal hold: {context['holds_count']} | Records due for disposal: {context['due_count']}\n"
+        f"- Entities in system: {', '.join(context['entities']) or 'None yet'} | Departments: {', '.join(context['departments']) or 'None yet'}\n\n"
+        f"{platform_docs}\n\n"
+        "=== BEHAVIOUR RULES ===\n"
+        "- For read queries (find records, list categories, get audit logs etc.) call the appropriate read function. The result will be returned to you so you can form a response.\n"
+        "- For write actions (create record, place hold, add tag, dispose, revert version etc.) call the appropriate write function. The system will present a confirmation dialog to the user before executing.\n"
+        "- NEVER output raw JSON blocks to describe tool calls. Always use your native function-calling capability.\n"
+        "- If the user request is missing required information (e.g. barcodes for a new record), ask clarifying questions before triggering any function.\n"
+        "- Use markdown formatting in your text responses: **bold**, bullet lists, numbered steps. The UI renders markdown properly.\n"
+        "- Be concise but thorough. Guide users step-by-step when explaining how to use a feature."
+    )
+
+    # --- Nvidia / text-based fallback system prompt (verbose, JSON-block based) ---
+    nvidia_system_prompt = (
         "You are the SpiderSmart IMS Copilot, an AI assistant for an Inventory Management System.\n"
         f"User: {current_user.email} ({current_user.role})\n\n"
         "DB STATS:\n"
         f"- Active records: {context['total_records']} | Holds: {context['holds_count']} | Due: {context['due_count']}\n"
         f"- Entities (sample): {', '.join(context['entities'])} | Depts (sample): {', '.join(context['departments'])}\n\n"
         f"{platform_docs}\n\n"
-        "=== READ-ONLY DATABASE TOOLS ===\n"
-        "If you need to query records, audit logs, categories, locations, or departments to answer the user's question, output EXACTLY this JSON block and nothing else. The backend will run the query and return the results to you so you can give a final answer. Do not use backticks or markdown quotes:\n"
-        "{\n"
-        '  "read_tool": {\n'
-        '    "name": "search_records" | "get_record_details" | "list_categories" | "list_locations" | "list_departments" | "query_audit_logs",\n'
-        '    "arguments": {\n'
-        '      "query": "search query text (only for search_records)",\n'
-        '      "barcode": "barcode value (only for get_record_details / query_audit_logs)",\n'
-        '      "limit": 5\n'
-        '    }\n'
-        '  }\n'
-        "}\n\n"
         "=== EXECUTING WRITE ACTIONS ===\n"
         "To perform database write tasks on behalf of the user, output EXACTLY this JSON block. Do not use backticks or markdown quotes around it:\n"
         "{\n"
@@ -539,99 +813,126 @@ async def chat_with_copilot(
         '    "record_date": "YYYY-MM-DD",\n'
         '    "entity": "Entity name",\n'
         '    "department": "Department name",\n'
-        '    "location": "Location name",\n'
-        '    "location_name": "Name for new location CRUD",\n'
-        '    "category_name": "Name for new category CRUD"\n'
+        '    "location": "Location name"\n'
         "  }\n"
         "}\n\n"
         "=== OUTPUT STYLE RULES (CRITICAL) ===\n"
-        "- Be helpful, clear, and comprehensive. Provide detailed step-by-step guidance when explaining features.\n"
-        "- Avoid unnecessary filler, but ensure you give enough detail so the user knows exactly what to do.\n"
-        "- Use numbered lists and bullet points to make guides easy to read.\n"
-        "- NEVER use asterisks (*) or markdown syntax for bold or italic text. Use plain text only.\n"
-        "- If you are outputting a tool JSON block (read_tool or tool_call), output ONLY that raw JSON and nothing else. No conversational text."
+        "- Be helpful, clear, and comprehensive.\n"
+        "- Use numbered lists and bullet points.\n"
+        "- Use markdown formatting (**bold**, lists).\n"
+        "- If you are outputting a tool JSON block, output ONLY that raw JSON and nothing else."
     )
     
     ai_text = ""
     pending_action = None
     actions = []
+    fetched_records = None
+    fetched_audit_logs = None
     
-    if nvidia_api_key or gemini_api_key:
-        # Construct message histories
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
-        for hist in payload.history:
-            role = "user" if hist.role == "user" else "assistant"
-            messages.append({"role": role, "content": hist.content})
-        messages.append({"role": "user", "content": payload.message})
+    # Per-model timeouts — 2.5-Pro is a thinking model, needs more time
+    GEMINI_TIMEOUTS = {
+        "gemini-2.5-pro": 40.0,
+        "gemini-1.5-pro": 30.0,
+        "gemini-2.5-flash": 15.0,
+        "gemini-1.5-flash": 10.0,
+    }
 
-        contents = [
-            {"role": "user", "parts": [{"text": f"SYSTEM CONTEXT:\n{system_prompt}"}]},
-            {"role": "model", "parts": [{"text": "Understood. I will respond concisely and output raw tool JSONs directly or answer user queries."}]}
-        ]
+    if gemini_api_key:
+        # 1. Native Gemini Function Calling flow (Prioritized)
+        # History is sent as actual conversation turns; system context via systemInstruction
+        contents = []
         for hist in payload.history:
             role = "user" if hist.role == "user" else "model"
             contents.append({"role": role, "parts": [{"text": hist.content}]})
         contents.append({"role": "user", "parts": [{"text": payload.message}]})
 
-        max_iterations = 3
+        max_iterations = 5
         for iteration in range(max_iterations):
             current_response = ""
-            
-            # 1. Prioritize Nvidia Nemotron NIM
-            if nvidia_api_key:
+            fn_call = None
+
+            # Call Gemini generateContent API
+            # Start with flash models (faster, cheaper) — Pro last as fallback
+            for model_name in ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-pro"]:
                 try:
-                    url = "https://integrate.api.nvidia.com/v1/chat/completions"
-                    headers = {
-                        "Authorization": f"Bearer {nvidia_api_key}" if nvidia_api_key != "local-ollama" else "Bearer DUMMY",
-                        "Content-Type": "application/json"
-                    }
-                    if nvidia_api_key == "local-ollama":
-                        url = "http://localhost:11434/v1/chat/completions"
-                    
-                    json_body = {
-                        "model": settings.NVIDIA_MODEL,
-                        "messages": messages,
-                        "temperature": 0.2,
-                        "max_tokens": 512
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_api_key}"
+                    payload_data = {
+                        "systemInstruction": {"parts": [{"text": gemini_system_prompt}]},
+                        "contents": contents,
+                        "tools": [{"functionDeclarations": GEMINI_FUNCTIONS}],
+                        "toolConfig": {"functionCallingConfig": {"mode": "AUTO"}}
                     }
                     async with httpx.AsyncClient() as client:
-                        resp = await client.post(url, json=json_body, headers=headers, timeout=12.0)
+                        resp = await client.post(
+                            url, json=payload_data,
+                            headers={"Content-Type": "application/json"},
+                            timeout=GEMINI_TIMEOUTS.get(model_name, 15.0)
+                        )
                     if resp.status_code == 200:
-                        current_response = resp.json()["choices"][0]["message"]["content"]
+                        res_json = resp.json()
+                        candidate = res_json["candidates"][0]
+                        content_res = candidate.get("content", {})
+                        parts = content_res.get("parts", [])
+                        # Scan ALL parts — thinking models return thoughts first,
+                        # then the real text/functionCall in a later part
+                        for part in parts:
+                            if "functionCall" in part:
+                                fn_call = part["functionCall"]
+                                break
+                            elif "text" in part and part["text"].strip():
+                                current_response = part["text"]
+                                # Don't break — keep scanning in case functionCall appears later
+                        # If we got something useful, stop trying other models
+                        if fn_call or current_response:
+                            logger.info(f"Copilot: got response from {model_name}")
+                            break
+                        else:
+                            finish_reason = candidate.get("finishReason", "UNKNOWN")
+                            logger.warning(f"Gemini {model_name}: empty response, finishReason={finish_reason}")
+                    else:
+                        logger.warning(f"Gemini {model_name} returned status {resp.status_code}: {resp.text[:200]}")
                 except Exception as e:
-                    logger.error(f"Nvidia NIM API call failed: {str(e)}")
+                    logger.error(f"Gemini Call failed for {model_name}: {str(e)}")
 
-            # 2. Fallback to Gemini Flash
-            if not current_response and gemini_api_key:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_api_key}"
-                    async with httpx.AsyncClient() as client:
-                        resp = await client.post(url, json={"contents": contents}, headers={"Content-Type": "application/json"}, timeout=10.0)
-                    if resp.status_code == 200:
-                        current_response = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                except Exception as e:
-                    logger.error(f"Gemini API call failed: {str(e)}")
-
-            if not current_response:
+            if not fn_call and not current_response:
                 break
 
-            # Parse read_tool request
-            read_tool_match = re.search(r'\{\s*"read_tool"\s*:\s*(\{.*?\})\s*\}', current_response, re.DOTALL)
-            if read_tool_match:
+            if fn_call:
+                tool_name = fn_call["name"]
+                args = fn_call.get("args", {})
+                
+                # Check if it is a write function (Action confirmation required)
+                write_functions = {
+                    "apply_legal_hold", "remove_legal_hold", "set_category",
+                    "add_tag", "create_record", "edit_record", "dispose_record",
+                    "create_location", "create_category", "trigger_retention_sweep",
+                    "revert_record_version"
+                }
+                
+                if tool_name in write_functions:
+                    pending_action = {
+                        "action": tool_name,
+                        **args
+                    }
+                    action_display = tool_name.replace("_", " ").upper()
+                    barcode_str = f" for barcode '{args.get('barcode')}'" if args.get('barcode') else ""
+                    ai_text = f"I've prepared the database action: **{action_display}**{barcode_str}.\n\n⚠️ **Action requires your permission.**"
+                    break
+                
+                # It is a read function (Run automatically and supply response)
+                logger.info(f"Executing read function: {tool_name} with args: {args}")
+                tool_result = None
+                
                 try:
-                    tool_data = json.loads(read_tool_match.group(1))
-                    tool_name = tool_data.get("name")
-                    args = tool_data.get("arguments", {})
-                    
-                    logger.info(f"Executing read_tool '{tool_name}' with args {args}")
-                    
-                    tool_result = None
                     if tool_name == "search_records":
                         tool_result = await search_records_tool(db, args.get("query", ""), args.get("limit", 5))
+                        fetched_records = tool_result
                     elif tool_name == "get_record_details":
                         tool_result = await get_record_details_tool(db, args.get("barcode", ""))
+                        if "error" not in tool_result:
+                            fetched_records = [tool_result]
+                    elif tool_name == "list_record_versions":
+                        tool_result = await list_record_versions_tool(db, args.get("barcode", ""))
                     elif tool_name == "list_categories":
                         tool_result = await list_categories_tool(db)
                     elif tool_name == "list_locations":
@@ -640,141 +941,244 @@ async def chat_with_copilot(
                         tool_result = await list_departments_tool(db)
                     elif tool_name == "query_audit_logs":
                         tool_result = await query_audit_logs_tool(db, args.get("barcode"), args.get("limit", 10))
+                        if isinstance(tool_result, list):
+                            fetched_audit_logs = tool_result
                     else:
                         tool_result = {"error": f"Unknown tool '{tool_name}'"}
-                        
-                    tool_result_str = json.dumps(tool_result, default=str)
-                    logger.info(f"Tool Result: {tool_result_str[:200]}...")
-                    
-                    # Update message lists
-                    messages.append({"role": "assistant", "content": current_response})
-                    messages.append({"role": "user", "content": f"TOOL RESULT: {tool_result_str}"})
-                    
-                    contents.append({"role": "model", "parts": [{"text": current_response}]})
-                    contents.append({"role": "user", "parts": [{"text": f"TOOL RESULT: {tool_result_str}"}]})
-                    continue
-                except Exception as parse_err:
-                    logger.error(f"Failed to execute read_tool: {str(parse_err)}")
-                    messages.append({"role": "assistant", "content": current_response})
-                    messages.append({"role": "user", "content": f"TOOL ERROR: Failed to execute tool: {str(parse_err)}"})
-                    
-                    contents.append({"role": "model", "parts": [{"text": current_response}]})
-                    contents.append({"role": "user", "parts": [{"text": f"TOOL ERROR: Failed to execute tool: {str(parse_err)}"}]})
-                    continue
-            
-            ai_text = current_response
-            break
+                except Exception as t_err:
+                    logger.error(f"Error executing tool {tool_name}: {str(t_err)}")
+                    tool_result = {"error": f"Internal execution error: {str(t_err)}"}
 
-    # Handle Intercepted Tool Calls in LLM Response (PROPOSE ONLY, NO EXECUTION YET)
+                # Update conversation turns for next loop iteration
+                contents.append({
+                    "role": "model",
+                    "parts": [{"functionCall": {"name": tool_name, "args": args}}]
+                })
+                contents.append({
+                    "role": "user",
+                    "parts": [{
+                        "functionResponse": {
+                            "name": tool_name,
+                            "response": {
+                                "output": tool_result
+                            }
+                        }
+                    }]
+                })
+                continue
+            
+            if current_response:
+                ai_text = current_response
+                break
+
+    elif nvidia_api_key:
+        # 2. Text-based Nvidia Nemotron flow (Fallback)
+        messages = [
+            {"role": "system", "content": nvidia_system_prompt}
+        ]
+        for hist in payload.history:
+            role = "user" if hist.role == "user" else "assistant"
+            messages.append({"role": role, "content": hist.content})
+        messages.append({"role": "user", "content": payload.message})
+
+        try:
+            url = "https://integrate.api.nvidia.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {nvidia_api_key}" if nvidia_api_key != "local-ollama" else "Bearer DUMMY",
+                "Content-Type": "application/json"
+            }
+            if nvidia_api_key == "local-ollama":
+                url = "http://localhost:11434/v1/chat/completions"
+            
+            json_body = {
+                "model": settings.NVIDIA_MODEL,
+                "messages": messages,
+                "temperature": 0.2,
+                "max_tokens": 512
+            }
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(url, json=json_body, headers=headers, timeout=12.0)
+            if resp.status_code == 200:
+                current_response = resp.json()["choices"][0]["message"]["content"]
+                ai_text = current_response
+        except Exception as e:
+            logger.error(f"Nvidia NIM API call failed: {str(e)}")
+
+        # Handle Intercepted Tool Calls in LLM Response (PROPOSE ONLY, NO EXECUTION YET)
+        if ai_text:
+            tool_call_match = re.search(r'\{\s*"tool_call"\s*:\s*(\{.*?\})\s*\}', ai_text, re.DOTALL)
+            if tool_call_match:
+                try:
+                    tool_data = json.loads(tool_call_match.group(1))
+                    logger.info(f"Intercepted Copilot tool call proposal: {tool_data}")
+                    
+                    # Strip the raw JSON block
+                    clean_reply = ai_text.replace(tool_call_match.group(0), "").strip()
+                    action_name = tool_data.get("action", "").replace("_", " ").upper()
+                    barcode_str = f" for record '{tool_data.get('barcode')}'" if tool_data.get('barcode') else ""
+                    
+                    ai_text = clean_reply if clean_reply else f"I have prepared the action: **{action_name}**{barcode_str}."
+                    ai_text += "\n\n⚠️ **Action requires your permission to proceed.** Please confirm or cancel below."
+                    pending_action = tool_data
+                except Exception as json_err:
+                    logger.error(f"Tool parse failed: {str(json_err)}")
+                    ai_text += "\n\n⚠️ **System Status:** Proposed tool arguments were malformed."
+            else:
+                ai_text = re.sub(r'```json.*?```', '', ai_text, flags=re.DOTALL).strip()
+
+    # Suggest navigation chips
     if ai_text:
-        # Match JSON block
-        tool_call_match = re.search(r'\{\s*"tool_call"\s*:\s*(\{.*?\})\s*\}', ai_text, re.DOTALL)
-        if tool_call_match:
-            try:
-                tool_data = json.loads(tool_call_match.group(1))
-                logger.info(f"Intercepted Copilot tool call proposal: {tool_data}")
-                
-                # Strip the raw JSON block
-                clean_reply = ai_text.replace(tool_call_match.group(0), "").strip()
-                action_name = tool_data.get("action", "").replace("_", " ").upper()
-                barcode_str = f" for record '{tool_data.get('barcode')}'" if tool_data.get('barcode') else ""
-                
-                ai_text = clean_reply if clean_reply else f"I have prepared the action: **{action_name}**{barcode_str}."
-                ai_text += "\n\n⚠️ **Action requires your permission to proceed.** Please confirm or cancel below."
-                pending_action = tool_data
-            except Exception as json_err:
-                logger.error(f"Tool parse failed: {str(json_err)}")
-                ai_text += "\n\n⚠️ **System Status:** Proposed tool arguments were malformed."
-        else:
-            # Clean conversational output: remove backticks if model generated any JSON in them
-            ai_text = re.sub(r'```json.*?```', '', ai_text, flags=re.DOTALL).strip()
-            
-            # Suggest navigation chips
-            if "hold" in msg:
-                actions.append({"label": "View Legal Holds", "route": "/audit"})
-            if "report" in msg:
-                actions.append({"label": "Create a Report", "route": "/reports"})
-            if "import" in msg:
-                actions.append({"label": "Go to CSV Import", "route": "/import"})
-            if "record" in msg or "search" in msg:
-                actions.append({"label": "View Records", "route": "/records"})
-        
-        logger.info(f"Copilot Request Completed in {time.time() - start_time:.2f}s")
-        return CopilotChatResponse(response=clean_response(ai_text), actions_suggested=actions, pending_action=pending_action)
-
-    # 4. Smart Semantic Fallback (Offline Mode)
-    fallback_start = time.time()
-    response_text = ""
+        if "hold" in msg:
+            actions.append({"label": "View Legal Holds", "route": "/audit"})
+        if "report" in msg:
+            actions.append({"label": "Create a Report", "route": "/reports"})
+        if "import" in msg:
+            actions.append({"label": "Go to CSV Import", "route": "/import"})
+        if "record" in msg or "search" in msg:
+            actions.append({"label": "View Records", "route": "/records"})
     
-    # Offline Command Execution (Proposed confirmation)
-    if msg.startswith("hold ") or msg.startswith("unhold ") or msg.startswith("tag ") or msg.startswith("categorize "):
-        words = msg.split()
-        cmd = words[0]
-        barcode = words[1] if len(words) > 1 else ""
-        
-        if barcode:
-            tool_data = {}
-            if cmd == "hold":
-                reason = " ".join(words[2:]) if len(words) > 2 else "Copilot Hold Request"
-                tool_data = {"action": "apply_legal_hold", "barcode": barcode, "reason": reason}
-            elif cmd == "unhold":
-                reason = " ".join(words[2:]) if len(words) > 2 else "Copilot Release Request"
-                tool_data = {"action": "remove_legal_hold", "barcode": barcode, "reason": reason}
-            elif cmd == "tag":
-                tag = words[2] if len(words) > 2 else ""
-                tool_data = {"action": "add_tag", "barcode": barcode, "tag_name": tag}
-            elif cmd == "categorize":
-                category = " ".join(words[2:]) if len(words) > 2 else ""
-                tool_data = {"action": "set_category", "barcode": barcode, "category_name": category}
-                
-            if tool_data:
-                response_text = f"I've prepared the command:\n* **Command:** {cmd.upper()} record `{barcode}`\n\n⚠️ **Action requires your permission.**"
-                return CopilotChatResponse(response=response_text, actions_suggested=[], pending_action=tool_data)
+    logger.info(f"Copilot Request Completed in {time.time() - start_time:.2f}s")
 
-    # Offline QA responses
-    if "how many records" in msg or "total records" in msg:
-        response_text = f"• **Total Active Records:** {context['total_records']}"
-        actions.append({"label": "View Records", "route": "/records"})
-    elif "hold" in msg:
-        response_text = f"• **Active Legal Holds:** {context['holds_count']}\n• Holds block modifications/deletions."
-        actions.append({"label": "View Audit Log", "route": "/audit"})
-    elif "disposition" in msg or "due" in msg:
-        response_text = f"• **Records Due for Disposal:** {context['due_count']}\n• Sweep schedules identify these items."
-        actions.append({"label": "Go to Master Data", "route": "/admin/master"})
-    elif "search" in msg or "find" in msg:
-        term = msg.replace("search for", "").replace("search", "").replace("find", "").strip()
-        if term:
-            try:
-                search_query = (
-                    select(InventoryRecord)
-                    .where(
-                        InventoryRecord.is_active == True,
-                        (InventoryRecord.description.ilike(f"%{term}%")) |
-                        (InventoryRecord.box_barcode.ilike(f"%{term}%"))
+    # ── Offline Semantic Fallback ─────────────────────────────────────────────
+    # Reached when no LLM key is configured OR all LLM calls returned empty
+    if not ai_text:
+        fallback_start = time.time()
+        response_text = ""
+
+        # Offline Command Execution (Proposed confirmation)
+        if msg.startswith("hold ") or msg.startswith("unhold ") or msg.startswith("tag ") or msg.startswith("categorize ") or msg.startswith("create "):
+            words = msg.split()
+            cmd = words[0]
+            barcode = words[1] if len(words) > 1 else ""
+
+            if cmd == "create":
+                # Expecting format: create [box_barcode] [file_barcode] [description...]
+                parts = msg.split(maxsplit=3)
+                if len(parts) >= 4:
+                    box_barcode = parts[1]
+                    file_barcode = parts[2]
+                    desc = parts[3]
+                    from datetime import date
+                    today_str = date.today().isoformat()
+                    tool_data = {
+                        "action": "create_record",
+                        "box_barcode": box_barcode.upper(),
+                        "file_barcode": file_barcode.upper(),
+                        "description": desc,
+                        "record_date": today_str,
+                        "entity": "Spider Smart",
+                        "department": "Finance",
+                        "location": "Warehouse A"
+                    }
+                    response_text = f"I've prepared the command:\n* **Command:** CREATE record `{box_barcode.upper()}` / `{file_barcode.upper()}`\n* **Description:** {desc}\n\n⚠️ **Action requires your permission.**"
+                    return CopilotChatResponse(
+                        response=response_text,
+                        actions_suggested=[],
+                        pending_action=tool_data,
+                        records=None,
+                        audit_logs=None
                     )
-                    .limit(3)
-                )
-                search_result = await db.execute(search_query)
-                records = search_result.scalars().all()
-                if records:
-                    response_text = f"Matches found for **\"{term}\"**:\n"
-                    for r in records:
-                        response_text += f"• Barcode `{r.box_barcode}`: {r.description[:50]}...\n"
                 else:
-                    response_text = f"No matches found for **\"{term}\"**."
-            except Exception:
-                response_text = "Database search error."
+                    response_text = "To create a record offline, please use the format:\n`create [box_barcode] [file_barcode] [description]`"
+                    return CopilotChatResponse(
+                        response=response_text,
+                        actions_suggested=[],
+                        records=None,
+                        audit_logs=None
+                    )
+
+            if barcode:
+                tool_data = {}
+                if cmd == "hold":
+                    reason = " ".join(words[2:]) if len(words) > 2 else "Copilot Hold Request"
+                    tool_data = {"action": "apply_legal_hold", "barcode": barcode, "reason": reason}
+                elif cmd == "unhold":
+                    reason = " ".join(words[2:]) if len(words) > 2 else "Copilot Release Request"
+                    tool_data = {"action": "remove_legal_hold", "barcode": barcode, "reason": reason}
+                elif cmd == "tag":
+                    tag = words[2] if len(words) > 2 else ""
+                    tool_data = {"action": "add_tag", "barcode": barcode, "tag_name": tag}
+                elif cmd == "categorize":
+                    category = " ".join(words[2:]) if len(words) > 2 else ""
+                    tool_data = {"action": "set_category", "barcode": barcode, "category_name": category}
+
+                if tool_data:
+                    response_text = f"I've prepared the command:\n* **Command:** {cmd.upper()} record `{barcode}`\n\n⚠️ **Action requires your permission.**"
+                    return CopilotChatResponse(
+                        response=response_text,
+                        actions_suggested=[],
+                        pending_action=tool_data,
+                        records=None,
+                        audit_logs=None
+                    )
+
+        # Offline QA responses
+        if "how many records" in msg or "total records" in msg:
+            response_text = f"• **Total Active Records:** {context['total_records']}"
+            actions.append({"label": "View Records", "route": "/records"})
+        elif "hold" in msg:
+            response_text = f"• **Active Legal Holds:** {context['holds_count']}\n• Holds block modifications/deletions."
+            actions.append({"label": "View Audit Log", "route": "/audit"})
+        elif "disposition" in msg or "due" in msg:
+            response_text = f"• **Records Due for Disposal:** {context['due_count']}\n• Sweep schedules identify these items."
+            actions.append({"label": "Go to Master Data", "route": "/admin/master"})
+        elif "search" in msg or "find" in msg:
+            term = msg.replace("search for", "").replace("search", "").replace("find", "").strip()
+            if term:
+                try:
+                    search_query = (
+                        select(InventoryRecord)
+                        .where(
+                            InventoryRecord.is_active == True,
+                            (InventoryRecord.description.ilike(f"%{term}%")) |
+                            (InventoryRecord.box_barcode.ilike(f"%{term}%"))
+                        )
+                        .limit(3)
+                    )
+                    search_result = await db.execute(search_query)
+                    records = search_result.scalars().all()
+                    if records:
+                        fetched_records = [
+                            {
+                                "id": str(r.id),
+                                "box_barcode": r.box_barcode,
+                                "file_barcode": r.file_barcode,
+                                "description": r.description,
+                                "entity": r.entity,
+                                "department": r.department,
+                                "location": r.location,
+                                "disposition_status": r.disposition_status,
+                                "legal_hold": r.legal_hold,
+                                "tags": r.tags
+                            }
+                            for r in records
+                        ]
+                        response_text = f"Matches found for **\"{term}\"**:\n"
+                        for r in records:
+                            response_text += f"• Barcode `{r.box_barcode}`: {r.description[:50]}...\n"
+                    else:
+                        response_text = f"No matches found for **\"{term}\"**."
+                except Exception:
+                    response_text = "Database search error."
+            else:
+                response_text = "Please specify a term: `find [keyword]`."
+            actions.append({"label": "View Records", "route": "/records"})
         else:
-            response_text = "Please specify a term: `find [keyword]`."
-        actions.append({"label": "View Records", "route": "/records"})
-    else:
-        response_text = (
-            "• Ask about: **record count**, **holds**, **dispositions**, or search via **`find [keyword]`**.\n"
-            "• Run local tasks: **`hold [barcode] [reason]`**, **`unhold [barcode]`**, **`tag [barcode] [tag]`**."
-        )
-        
-    logger.info(f"Fallback complete. Total duration: {time.time() - start_time:.4f}s")
-    return CopilotChatResponse(response=clean_response(response_text), actions_suggested=actions)
+            response_text = (
+                "• Ask about: **record count**, **holds**, **dispositions**, or search via **`find [keyword]`**.\n"
+                "• Run local tasks: **`hold [barcode] [reason]`**, **`unhold [barcode]`**, **`tag [barcode] [tag]`**, **`create [box_barcode] [file_barcode] [description]`**."
+            )
+
+        logger.info(f"Fallback complete in {time.time() - fallback_start:.4f}s")
+        ai_text = response_text
+
+    return CopilotChatResponse(
+        response=clean_response(ai_text),
+        actions_suggested=actions,
+        pending_action=pending_action,
+        records=fetched_records,
+        audit_logs=fetched_audit_logs
+    )
 
 @router.post("/execute", response_model=Dict[str, Any])
 async def execute_copilot_action(
@@ -786,6 +1190,9 @@ async def execute_copilot_action(
     Endpoint called when the user confirms execution of a pending tool action.
     """
     logger.info(f"User confirmed execution of action '{payload.action}' via Copilot.")
+    if payload.action == "revert_record_version" and current_user.role != "SYSTEM_ADMIN":
+        raise HTTPException(status_code=403, detail="Permission Denied: Only SYSTEM_ADMIN role can revert record versions.")
+
     action_dict = payload.model_dump(exclude_none=True)
     
     try:

@@ -10,7 +10,8 @@ import {
   Users,
   Tags,
   Scale,
-  Warehouse
+  Warehouse,
+  BookOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguageStore } from '@/store/languageStore'
@@ -23,6 +24,7 @@ type TranslationKeys =
   | 'auditLog'
   | 'eDiscovery'
   | 'warehouse'
+  | 'compliance'
   | 'users'
   | 'masterData'
   | 'classification'
@@ -35,6 +37,7 @@ const navItems = [
   { key: 'auditLog', href: '/audit', icon: ClipboardList },
   { key: 'eDiscovery', href: '/ediscovery', icon: Scale },
   { key: 'warehouse', href: '/warehouse', icon: Warehouse },
+  { key: 'compliance', href: '/compliance', icon: BookOpen },
 ] as const
 
 const adminItems = [

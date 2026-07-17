@@ -18,6 +18,7 @@ import EDiscovery from '@/pages/EDiscovery'
 import Warehouse from '@/pages/Warehouse'
 import { Toaster } from 'sonner'
 import AdminClassification from '@/pages/AdminClassification'
+import ComplianceAdvisor from '@/pages/ComplianceAdvisor'
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
               <Route path="/import" element={<Import />} />
               <Route path="/ediscovery" element={<EDiscovery />} />
               <Route path="/warehouse" element={<Warehouse />} />
+              <Route path="/compliance" element={<ComplianceAdvisor />} />
               
               {/* Admin routes */}
               <Route path="/admin/users" element={<AdminUsers />} />

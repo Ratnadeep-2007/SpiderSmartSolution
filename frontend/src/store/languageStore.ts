@@ -11,6 +11,7 @@ type TranslationKeys =
   | 'auditLog'
   | 'eDiscovery'
   | 'warehouse'
+  | 'compliance'
   | 'users'
   | 'masterData'
   | 'classification'
@@ -76,6 +77,7 @@ const translations: Record<Language, Record<TranslationKeys, string>> = {
     auditLog: 'Audit Log',
     eDiscovery: 'e-Discovery',
     warehouse: 'Warehouse',
+    compliance: 'Compliance Advisor',
     users: 'Users',
     masterData: 'Master Data',
     classification: 'Classification',
@@ -136,6 +138,7 @@ const translations: Record<Language, Record<TranslationKeys, string>> = {
     auditLog: 'سجل التدقيق',
     eDiscovery: 'الكشف الإلكتروني',
     warehouse: 'المستودع',
+    compliance: 'مستشار الامتثال',
     users: 'المستخدمين',
     masterData: 'البيانات الأساسية',
     classification: 'التصنيف',

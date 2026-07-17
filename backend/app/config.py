@@ -20,10 +20,14 @@ class Settings(BaseSettings):
     # Audit
     AUDIT_LOG_READ_EVENTS: bool = False
     
-    # AI & Copilot
+    # AI & Copilot Configuration
+    # Get a free key at https://aistudio.google.com/
     GEMINI_API_KEY: Optional[str] = None
     NVIDIA_API_KEY: Optional[str] = None
     NVIDIA_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    
+    # Background Scheduler
+    RUN_SCHEDULER: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

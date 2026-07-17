@@ -58,6 +58,30 @@ npm run dev
     - **Legal Holds:** One-click hold mechanism to suspend retention and block deletion.
     - **Versioning:** Full history of changes with point-in-time restoration.
 
+## AI Copilot & Semantic Capabilities
+The application integrates frontier generative AI to automate physical record discovery and metadata governance.
+
+### 1. Model Architecture
+* **Primary LLM:** Gemini 2.5 Pro (via Google AI Studio). The backend uses an automatic model cascade fallback (`gemini-2.5-pro` -> `gemini-1.5-pro` -> `gemini-2.5-flash` -> `gemini-1.5-flash`) to guarantee system liveness.
+* **Semantic Search:** Uses `text-embedding-004` (768 dimensions) to rank records based on cosine distance similarity inside PostgreSQL using `pgvector`.
+* **Tool Calling:** Powered by native Gemini Function Calling. The LLM executes structured DB queries, fetches context, and returns formatted responses.
+
+### 2. High-Fidelity UI Interface
+* **Inline Markdown Parser:** Custom React engine renders headers, bold font, lists, and code blocks directly inside chat bubbles without risk of XSS.
+* **Structured Record Cards:** Real-time search matches are rendered as visual cards showing barcode copy buttons, hold/disposition badges, metadata summaries, and inline hold controls.
+* **Audit History Cards:** Displays transaction logs with actor details and a green cryptographic verification lock (*SHA-256 Verified*).
+
+### 3. Extreme Task Examples
+* **Multi-Turn Joint Lookups:**
+  * *Prompt:* "Find any active boxes for HR stored in Room 4."
+  * *Action:* Copilot retrieves department and location IDs, searches inventory tables, and prints record cards.
+* **Permission-Gated Write Actions:**
+  * *Prompt:* "Place box BOX-SEM-1A2B on legal hold due to the 2025 financial audit."
+  * *Action:* Copilot intercepts the write intent, structures a proposal payload, and displays a confirmation sheet with "Confirm" and "Cancel" buttons.
+* **Forensic Verification:**
+  * *Prompt:* "Show me the edit history for record FIL-SEM-C92A."
+  * *Action:* Copilot scans PostgreSQL audit tables, verifies the cryptographic SHA-256 hash chains, and shows the verified history.
+
 ## Development Conventions
 - **Path Aliases:** Use `@/` for absolute imports in the frontend.
 - **Backend structure:** Follow the `app/models`, `app/schemas`, `app/services` pattern.
